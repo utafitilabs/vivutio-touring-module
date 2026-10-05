@@ -1,0 +1,82 @@
+{# A tour's page: what it is, its days in order, and what the parks charge a
+   party starting on a day. Writing a day is on this page for whoever may. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}{{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+{%- set may = door('tours.manage') -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / {{ tour.name }}</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div>{% if tour.summary %}<p class="hint">{{ tour.summary }}</p>{% endif %}</div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tours') }}">{{ icons.icon('left', 15) }} Back to tours</a>{% if may %}<a class="button outline" href="{{ path('touring_tour_configure', {uuid: tour.uuid}) }}">Configure</a>{% endif %}</div>
+</header>
+
+<div class="band">
+    <span class="f"><span class="k">Days</span><span class="v">{{ tour.days|length }}</span></span>
+    <span class="f"><span class="k">Group</span><span class="v" data-group>{{ tour.groupMin }} to {{ tour.groupMax }}</span></span>
+    {% if quote %}<span class="f"><span class="k">Park fees</span><span class="v">{{ tours_.amounts(quote.totals) }}</span></span>{% endif %}
+</div>
+
+<div class="columns">
+    <div class="stack">
+        <section class="panel">
+            <header class="panel-head"><h2>Days</h2><p>In order; the night is spent where the day ends</p></header>
+            {% for day in tour.days %}
+                <article class="day" data-day>
+                    <header><h3>Day {{ day.number }} · {{ day.title }}</h3>{% if may %}<span class="actions"><a class="button small outline" href="{{ path('touring_day_configure', {uuid: tour.uuid, day: day.uuid}) }}">Edit</a><form method="post" action="{{ path('touring_day_remove', {uuid: tour.uuid, day: day.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_day_remove') }}"><button type="submit" class="button small quiet">Remove</button></form></span>{% endif %}</header>
+                    {% if day.destinations %}<div class="fact"><span>Goes to</span><b data-destinations>{% for key in day.destinations %}{{ names[key] ?? key }}{{ not loop.last ? ', ' }}{% endfor %}</b></div>{% endif %}
+                    <div class="fact"><span>The night at</span><b data-overnight>{{ overnights[day.number] ?? 'Not set' }}</b></div>
+                    {%- set meta = [] -%}
+                    {%- if day.meals %}{% set meta = meta|merge([day.meals|join(', ')|capitalize]) %}{% endif -%}
+                    {%- if day.distanceKm is not null %}{% set meta = meta|merge([day.distanceKm ~ ' km']) %}{% endif -%}
+                    {%- if day.driveHours is not null %}{% set meta = meta|merge([(day.driveHours|number_format(1)|trim('0', 'right')|trim('.', 'right')) ~ ' hours']) %}{% endif -%}
+                    {% if meta %}<p class="hint" data-meta>{{ meta|join(' · ') }}</p>{% endif %}
+                    {% if day.description %}<p class="hint">{{ day.description|nl2br }}</p>{% endif %}
+                    {% if quote %}<div class="fact"><span>Park fees</span><b data-day-fees>{{ tours_.amounts(quote.days[day.number] ?? []) }}</b></div>{% endif %}
+                </article>
+            {% else %}
+                <div class="empty"><b>No days yet</b><span>A tour is written day by day: add the first.</span></div>
+            {% endfor %}
+        </section>
+
+        {% if may %}
+        <form class="panel" method="post" action="{{ path('touring_day_add', {uuid: tour.uuid}) }}" novalidate>
+            <header class="panel-head"><h2>Add day {{ tour.days|length + 1 }}</h2><p>Where it goes and where its night is spent</p></header>
+            <input type="hidden" name="_token" value="{{ csrf_token('touring_day') }}">
+            {% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Add it again.</span></div>{% endif %}
+            {{ tours_.day_fields(typed, wrong, destination_choices, overnight_choices, meals) }}
+            <footer class="panel-foot"><span class="state"></span><button type="submit" class="button main">Add the day</button></footer>
+        </form>
+        {% endif %}
+    </div>
+
+    <aside class="aside stack">
+        <section class="panel small" data-fees>
+            <header class="panel-head"><h2>Park fees</h2><p>For a party starting on a day, from the fees entered for each destination</p></header>
+            <form method="get" action="{{ path('touring_tour', {uuid: tour.uuid}) }}">
+                <div class="field"><label for="fees-start">Starting</label><input class="input" id="fees-start" name="start" type="date" value="{{ asked.start }}"></div>
+                <div class="grid-2">
+                    <div class="field"><label for="fees-adults">Adults</label><input class="input" id="fees-adults" name="adults" type="number" min="1" value="{{ asked.adults }}"></div>
+                    <div class="field"><label for="fees-children">Children</label><input class="input" id="fees-children" name="children" type="number" min="0" value="{{ asked.children }}"></div>
+                </div>
+                <div class="field"><label for="fees-residency">Residency</label><select class="select" id="fees-residency" name="residency">{% for residency in residencies %}<option value="{{ residency.value }}"{{ residency.value == asked.residency ? ' selected' }}>{{ residency.label }}</option>{% endfor %}</select></div>
+                <button type="submit" class="button outline">Price the park fees</button>
+            </form>
+            {% if quote %}
+                <div class="fact"><span>All days</span><b data-fees-total>{{ tours_.amounts(quote.totals) }}</b></div>
+                {% for line in quote.missing %}<p class="hint" data-missing>{{ line }}</p>{% endfor %}
+            {% endif %}
+        </section>
+        {% if tour.included or tour.excluded %}
+        <section class="panel small">
+            <header class="panel-head"><h2>What it includes</h2></header>
+            {% if tour.included %}<ul data-included>{% for item in tour.included %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+            {% if tour.excluded %}<p class="hint">Not included:</p><ul data-excluded>{% for item in tour.excluded %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+        </section>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

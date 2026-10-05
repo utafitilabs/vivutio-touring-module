@@ -1,0 +1,51 @@
+{# The tours, by status. Adding one goes on to its page to write its days. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Tours{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+<header class="page-head"><div><nav class="trail" aria-label="Where you are">Tours</nav><div class="title"><h1>Tours</h1><span class="about">The tours you sell, day by day</span></div></div></header>
+
+<div class="stack">
+    {% if door('tours.manage') %}
+    <form class="panel" method="post" action="{{ path('touring_tour_add') }}" novalidate>
+        <header class="panel-head"><h2>Add a tour</h2><p>Its days, group and what it includes come next</p></header>
+        <input type="hidden" name="_token" value="{{ csrf_token('touring_tour_add') }}">
+        {% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Add it again.</span></div>{% endif %}
+        <div class="field{{ wrong.name is defined ? ' wrong' }}"><label for="tour-name">Name</label><input class="input" id="tour-name" name="name" value="{{ name }}" maxlength="120">{{ tours_.hint('name', wrong, 'Northern Circuit, 6 days') }}</div>
+        <footer class="panel-foot"><span class="state"></span><button type="submit" class="button main">Add the tour</button></footer>
+    </form>
+    {% endif %}
+
+    <form class="tools" method="get" action="{{ path('touring_tours') }}" data-tools>
+        <span data-facet="status">
+            <a class="chip" data-chip href="{{ path('touring_tours') }}"{{ status is null ? ' aria-current="true"' }}>All <em>{{ total }}</em></a>
+            {% for case in statuses %}
+                <a class="chip" data-chip href="{{ path('touring_tours', {status: case.value}) }}"{{ case == status ? ' aria-current="true"' }}>{{ case.label }} <em>{{ counts[case.value] }}</em></a>
+            {% endfor %}
+        </span>
+    </form>
+
+    <section class="panel list">
+        <table class="table">
+            <thead><tr><th>Tour</th><th style="width:110px">Days</th><th style="width:120px">Group</th><th style="width:120px">Status</th><th style="width:90px"></th></tr></thead>
+            <tbody>
+            {% for tour in tours %}
+                <tr data-tour="{{ tour.name }}">
+                    <td><b>{{ tour.name }}</b>{% if tour.summary %}<small> {{ tour.summary }}</small>{% endif %}</td>
+                    <td>{{ tour.days|length }} {{ tour.days|length == 1 ? 'day' : 'days' }}</td>
+                    <td>{{ tour.groupMin }} to {{ tour.groupMax }}</td>
+                    <td>{{ tours_.status_chip(tour.status) }}</td>
+                    <td><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">Open</a></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5"><div class="empty"><b>No tours here</b><span>A tour is an itinerary you sell, written day by day.</span></div></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,79 @@
+{
+    "name": "vivutio/touring-module",
+    "type": "symfony-bundle",
+    "description": "Tours for vivutio: itineraries day by day through the destinations, where each night is spent, and what the parks charge a party.",
+    "keywords": [
+        "itinerary",
+        "safari",
+        "symfony",
+        "tourism",
+        "touring",
+        "vivutio"
+    ],
+    "license": "AGPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Ezekiel Mjema",
+            "homepage": "https://github.com/eemjema"
+        }
+    ],
+    "require": {
+        "php": ">=8.4",
+        "doctrine/doctrine-bundle": "^3.0",
+        "doctrine/orm": "^3.5",
+        "psr/clock": "^1.0",
+        "symfony/clock": "^8.0",
+        "symfony/config": "^8.0",
+        "symfony/dependency-injection": "^8.0",
+        "symfony/framework-bundle": "^8.0",
+        "symfony/http-foundation": "^8.0",
+        "symfony/http-kernel": "^8.0",
+        "symfony/intl": "^8.0",
+        "symfony/routing": "^8.0",
+        "symfony/security-bundle": "^8.0",
+        "symfony/security-csrf": "^8.0",
+        "symfony/security-http": "^8.0",
+        "symfony/twig-bundle": "^8.0",
+        "symfony/uid": "^8.0",
+        "twig/twig": "^3.21",
+        "vivutio/vivutio": "^0.1.17"
+    },
+    "require-dev": {
+        "doctrine/doctrine-migrations-bundle": "^4.0",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^13.2",
+        "symfony/browser-kit": "^8.0",
+        "symfony/css-selector": "^8.0",
+        "symfony/dom-crawler": "^8.0",
+        "symfony/filesystem": "^8.0",
+        "symfony/yaml": "^8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Vivutio\\Touring\\": "src/",
+            "Vivutio\\Touring\\Migrations\\": "migrations/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Vivutio\\Touring\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "cs:fix": "php-cs-fixer fix",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "phpstan": "phpstan analyse --no-progress --memory-limit=1G",
+        "test": "phpunit",
+        "check": [
+            "@cs:check",
+            "@phpstan",
+            "@test"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

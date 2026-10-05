@@ -1,0 +1,22 @@
+{# Changing a day of a tour. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Day {{ day.number }} of {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Day {{ day.number }}</nav><div class="title"><h1>Day {{ day.number }} · {{ day.title }}</h1></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
+</header>
+
+<form class="panel" method="post" action="{{ path('touring_day_configure', {uuid: tour.uuid, day: day.uuid}) }}" novalidate>
+    <header class="panel-head"><h2>Day {{ day.number }}</h2><p>Where it goes and where its night is spent</p></header>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_day') }}">
+    {% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+    {{ tours_.day_fields(typed, wrong, destination_choices, overnight_choices, meals) }}
+    <footer class="panel-foot"><span class="state">Nothing is saved until Save</span><button type="reset" class="button quiet">Discard</button><button type="submit" class="button main">Save day</button></footer>
+</form>
+{% endblock %}

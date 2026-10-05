@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnWarning="true">
+    <php>
+        <env name="KERNEL_CLASS" value="Vivutio\Touring\Tests\Application\Kernel"/>
+        <env name="APP_ENV" value="test"/>
+        <!-- The local PostgreSQL the core's specifications use; CI sets its own. -->
+        <env name="VIVUTIO_TEST_DATABASE_URL" value="postgresql://app:app@127.0.0.1:5434/touring_module_test?serverVersion=17&amp;charset=utf8"/>
+    </php>
+    <testsuites>
+        <testsuite name="default">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

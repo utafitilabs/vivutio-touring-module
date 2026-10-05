@@ -1,0 +1,42 @@
+{# Configuring a tour: its name, what it is, its group and what it includes;
+   opening it for sale and archiving it. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Configure {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Configure</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
+</header>
+
+{% if wrong.status is defined %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ wrong.status }}</span></div>{% endif %}
+
+<form class="panel" method="post" action="{{ path('touring_tour_configure', {uuid: tour.uuid}) }}" novalidate>
+    <header class="panel-head"><h2>Tour</h2><p>What it is, who it is for and what it includes</p></header>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_tour_configure') }}">
+    {% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+    <div class="field{{ wrong.name is defined ? ' wrong' }}"><label for="tour-name">Name</label><input class="input" id="tour-name" name="name" value="{{ typed.name }}" maxlength="120">{{ tours_.hint('name', wrong, null) }}</div>
+    <div class="field{{ wrong.summary is defined ? ' wrong' }}"><label for="tour-summary">In a sentence</label><textarea class="textarea" id="tour-summary" name="summary" rows="2">{{ typed.summary }}</textarea>{{ tours_.hint('summary', wrong, null) }}</div>
+    <div class="grid-2">
+        <div class="field{{ wrong.group_min is defined ? ' wrong' }}"><label for="tour-min">Smallest group</label><input class="input" id="tour-min" name="group_min" inputmode="numeric" value="{{ typed.group_min }}">{{ tours_.hint('group_min', wrong, null) }}</div>
+        <div class="field{{ wrong.group_max is defined ? ' wrong' }}"><label for="tour-max">Largest group</label><input class="input" id="tour-max" name="group_max" inputmode="numeric" value="{{ typed.group_max }}">{{ tours_.hint('group_max', wrong, null) }}</div>
+        <div class="field{{ wrong.included is defined ? ' wrong' }}"><label for="tour-included">Included, one a line</label><textarea class="textarea" id="tour-included" name="included" rows="4">{{ typed.included }}</textarea></div>
+        <div class="field{{ wrong.excluded is defined ? ' wrong' }}"><label for="tour-excluded">Not included, one a line</label><textarea class="textarea" id="tour-excluded" name="excluded" rows="4">{{ typed.excluded }}</textarea></div>
+    </div>
+    <footer class="panel-foot"><span class="state">Nothing is saved until Save</span><button type="reset" class="button quiet">Discard</button><button type="submit" class="button main">Save tour</button></footer>
+</form>
+
+<section class="panel">
+    <header class="panel-head"><h2>Status</h2><p>{{ tour.status.value == 'open' ? 'Open for sale' : (tour.status.value == 'draft' ? 'Being written, not yet for sale' : 'Archived: kept, sold no more') }}</p></header>
+    {% if tour.status.value != 'open' %}
+        <form class="action" method="post" action="{{ path('touring_tour_open', {uuid: tour.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_tour_status') }}"><div><b>Open the tour</b><span>For sale, with the days it has</span></div><button type="submit" class="button small">Open the tour</button></form>
+    {% endif %}
+    {% if tour.status.value != 'archived' %}
+        <form class="action" method="post" action="{{ path('touring_tour_archive', {uuid: tour.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_tour_status') }}"><div><b>Archive</b><span>Kept with its days, sold no more; reversible</span></div><button type="submit" class="button small danger">Archive</button></form>
+    {% endif %}
+</section>
+{% endblock %}

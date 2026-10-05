@@ -1,0 +1,6 @@
+# The touring module's pages (vivutio/touring-module): the tours, a tour's
+# days and park fees, under /tours. This file is what mounts them, and it is
+# yours: remove the import and the pages are gone.
+touring:
+    resource: '@VivutioTouringBundle/src/Controller/'
+    type: attribute
