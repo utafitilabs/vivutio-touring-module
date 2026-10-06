@@ -242,6 +242,48 @@ Checks: `tours.manage`
 | Admin | redirected to /tours/departures/0199b1c0-0000-7000-8000-00000000a005 |
 | Super Admin | answered 422 |
 
+## touring_cancellation: GET /tours/cancellation
+
+Checks: `tours.read`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Tour cancellation · vivutio |
+| Super Admin | allowed: Tour cancellation · vivutio |
+
+## touring_cancellation: POST /tours/cancellation
+
+Checks: `tours.read`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/cancellation |
+| Super Admin | redirected to /tours/cancellation |
+
+## touring_tour_cancellation: POST /tours/0199b1c0-0000-7000-8000-00000000a001/cancellation
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/prices |
+| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/prices |
+
 ## touring_seasons: GET /tours/seasons
 
 Checks: `tours.read`

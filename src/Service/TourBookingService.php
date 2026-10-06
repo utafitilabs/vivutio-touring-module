@@ -55,6 +55,7 @@ final readonly class TourBookingService
         private PartnerDirectoryInterface $partners,
         private TourDepartureRepository $departures,
         private TourDepartureService $seats,
+        private TourCancellationService $cancellation,
     ) {
     }
 
@@ -239,7 +240,8 @@ final readonly class TourBookingService
             ->setStatus($status)
             ->setHeldUntil($heldUntil)
             ->setPrice($tier, $price->tier, $price->season, $price->size, $price->currency, $price->each, $gross, null === $partner ? $gross : self::discounted($gross, $partner->getDiscount()))
-            ->setDeparture($departure);
+            ->setDeparture($departure)
+            ->setCancellationTiers($this->cancellation->tiersOf($tour));
         if (null !== $partner) {
             $booking->setPartnerTerms($partner->getPartnerId(), $partner->getDiscount(), $partner->getCreditDays());
         }
@@ -273,7 +275,8 @@ final readonly class TourBookingService
         if ('' === $reason || mb_strlen($reason) > TourBooking::REASON_MAX_LENGTH) {
             throw new InvalidTourException('reason', \sprintf('Why it is cancelled, up to %d characters.', TourBooking::REASON_MAX_LENGTH));
         }
-        $booking->setCancelled($this->clock->now(), $reason);
+        $now = $this->clock->now();
+        $booking->setCancelled($now, $reason, TourCancellationService::charge($booking, $now)['charge']);
         $this->entityManager->flush();
     }
 

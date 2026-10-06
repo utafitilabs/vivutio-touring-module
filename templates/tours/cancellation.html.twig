@@ -1,0 +1,41 @@
+{# The tours' cancellation terms, as drawn (vivutio-designs tours/cancellation):
+   from so many days before a tour starts, so much of its price; and how a
+   guest reads them. Kept by whoever may manage tours. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+
+{% block title %}Tour cancellation{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+{%- set may = door('tours.manage') -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / Cancellation</nav><div class="title"><h1>Cancellation</h1><span class="about">What cancelling a tour booking costs, unless a tour has its own</span></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tours') }}">{{ icons.icon('left', 15) }} Back to tours</a></div>
+</header>
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+{% for said in wrong %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ said }}</span></div>{% endfor %}
+
+<div class="stack">
+    {% if may %}
+    <form class="panel" method="post" action="{{ path('touring_cancellation') }}" novalidate>
+        <header class="panel-head"><h2>The tours’ terms</h2><p>From so many days before a tour starts, so much of its price; earlier is free</p></header>
+        <input type="hidden" name="_token" value="{{ csrf_token('touring_cancellation') }}">
+        <table class="table">
+            <thead><tr><th>From days before it starts</th><th>Share of the price charged, per cent</th></tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr><td><input class="input" name="tiers[{{ loop.index0 }}][days]" value="{{ row[0] }}" inputmode="numeric" aria-label="Tier {{ loop.index }}, days before it starts"></td>
+                    <td><input class="input" name="tiers[{{ loop.index0 }}][percent]" value="{{ row[1] }}" inputmode="numeric" aria-label="Tier {{ loop.index }}, per cent"></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <footer class="panel-foot"><span class="state">A row left empty is left out; cancelling later is never charged less</span><button type="submit" class="button main">Save the terms</button></footer>
+    </form>
+    {% endif %}
+    <section class="panel">
+        <header class="panel-head"><h2>As a guest reads them</h2></header>
+        {% for band in bands %}<div class="fact" data-band><b>{{ band }}</b></div>{% endfor %}
+    </section>
+</div>
+{% endblock %}

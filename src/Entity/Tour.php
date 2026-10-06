@@ -74,6 +74,10 @@ class Tour
     #[ORM\Column(type: Types::JSON)]
     private array $brackets = [];
 
+    /** @var list<array{days: int, percent: int}>|null its own cancellation tiers; null follows the tours' terms, none charges nothing */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $cancellation = null;
+
     /** The margin wanted on its prices, a share to the cent: "20.00". */
     #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
     private string $margin = '0.00';
@@ -230,6 +234,24 @@ class Tour
     {
         $this->priceCurrency = $currency;
         $this->brackets = $brackets;
+
+        return $this;
+    }
+
+    /**
+     * @return list<array{days: int, percent: int}>|null
+     */
+    public function getCancellation(): ?array
+    {
+        return $this->cancellation;
+    }
+
+    /**
+     * @param list<array{days: int, percent: int}>|null $cancellation
+     */
+    public function setCancellation(?array $cancellation): static
+    {
+        $this->cancellation = $cancellation;
 
         return $this;
     }

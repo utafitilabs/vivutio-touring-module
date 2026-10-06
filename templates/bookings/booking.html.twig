@@ -49,7 +49,12 @@
             <div class="fact"><span>Booked by</span><b>{{ booking.bookedBy ?? (booking.partnerId ? '—' : 'The guest directly') }}</b></div>
             {% if booking.theirReference %}<div class="fact"><span>Their reference</span><b>{{ booking.theirReference }}</b></div>{% endif %}
             {% if booking.notes %}<p class="hint">{{ booking.notes|nl2br }}</p>{% endif %}
-            {% if booking.cancelledAt %}<p class="hint" data-cancelled>Cancelled on {{ booking.cancelledAt|date('j M Y') }}: {{ booking.cancellationReason }}</p>{% endif %}
+        </section>
+        <section class="panel small" data-terms>
+            <header class="panel-head"><h2>Cancellation</h2><p>The terms it was made under</p></header>
+            {% for band in bands %}<div class="fact" data-band><b>{{ band }}</b></div>{% endfor %}
+            {% if booking.cancelledAt %}<p class="hint" data-cancelled>Cancelled on {{ booking.cancelledAt|date('j M Y') }}, {{ cancelled_when }}, {{ booking.cancellationCharge ? 'for ' ~ bookings_.money(booking.currency, booking.cancellationCharge) : 'free' }}: {{ booking.cancellationReason }}</p>
+            {% else %}<p class="hint" data-charge-today>{{ charge_today }}</p>{% endif %}
         </section>
         {% if may and booking.status.value != 'cancelled' %}
         <section class="panel small" data-actions>

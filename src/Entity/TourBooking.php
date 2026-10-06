@@ -140,6 +140,14 @@ class TourBooking
     #[ORM\Column(length: self::REASON_MAX_LENGTH, nullable: true)]
     private ?string $cancellationReason = null;
 
+    /** @var list<array{days: int, percent: int}> the cancellation tiers in force when it was made */
+    #[ORM\Column(type: Types::JSON)]
+    private array $cancellationTiers = [];
+
+    /** What cancelling it cost, in cents, once cancelled. */
+    #[ORM\Column(nullable: true)]
+    private ?int $cancellationCharge = null;
+
     public function __construct(Tour $tour, string $reference, string $guest, \DateTimeImmutable $start, \DateTimeImmutable $madeAt)
     {
         $this->uuid = Uuid::v7();
@@ -387,12 +395,36 @@ class TourBooking
         return $this->cancellationReason;
     }
 
-    public function setCancelled(\DateTimeImmutable $at, string $reason): static
+    public function setCancelled(\DateTimeImmutable $at, string $reason, int $charge): static
     {
         $this->status = TourBookingStatusEnum::Cancelled;
         $this->cancelledAt = $at;
         $this->cancellationReason = $reason;
+        $this->cancellationCharge = $charge;
 
         return $this;
+    }
+
+    /**
+     * @return list<array{days: int, percent: int}>
+     */
+    public function getCancellationTiers(): array
+    {
+        return $this->cancellationTiers;
+    }
+
+    /**
+     * @param list<array{days: int, percent: int}> $tiers
+     */
+    public function setCancellationTiers(array $tiers): static
+    {
+        $this->cancellationTiers = $tiers;
+
+        return $this;
+    }
+
+    public function getCancellationCharge(): ?int
+    {
+        return $this->cancellationCharge;
     }
 }

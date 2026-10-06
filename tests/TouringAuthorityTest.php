@@ -19,6 +19,7 @@ use Vivutio\Bundle\IdentityBundle\Test\AuthorityTestCase;
 use Vivutio\Bundle\IdentityBundle\Test\Probe;
 use Vivutio\Touring\Controller\SeasonController;
 use Vivutio\Touring\Controller\TourBookingController;
+use Vivutio\Touring\Controller\TourCancellationController;
 use Vivutio\Touring\Controller\TourController;
 use Vivutio\Touring\Controller\TourCostController;
 use Vivutio\Touring\Controller\TourDepartureController;
@@ -76,6 +77,9 @@ final class TouringAuthorityTest extends AuthorityTestCase
             new Probe(TourDepartureController::SALES, 'POST', self::DEPARTURE.'/sales', formAt: self::DEPARTURE),
             // Cancelled by the first allowed; the next finds it cancelled already.
             new Probe(TourDepartureController::CANCEL, 'POST', self::DEPARTURE.'/cancel', ['reason' => 'Probed'], formAt: self::DEPARTURE),
+            new Probe(TourCancellationController::TERMS, 'GET', '/tours/cancellation'),
+            new Probe(TourCancellationController::TERMS, 'POST', '/tours/cancellation', ['tiers' => [['days' => '60', 'percent' => '25']]], formAt: '/tours/cancellation'),
+            new Probe(TourController::CANCELLATION, 'POST', self::TOUR.'/cancellation', ['mode' => 'no_charge'], formAt: self::TOUR.'/prices'),
             new Probe(SeasonController::SEASONS, 'GET', '/tours/seasons'),
             new Probe(SeasonController::CONFIGURE, 'GET', self::SEASON.'/configure'),
             new Probe(SeasonController::CONFIGURE, 'POST', self::SEASON.'/configure', ['name' => 'Probed season', 'tone' => '2', 'rest' => '1'], formAt: self::SEASON.'/configure'),

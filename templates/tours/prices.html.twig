@@ -51,4 +51,26 @@
     {% endif %}
     <section class="panel"><footer class="panel-foot"><span class="state">An empty cell is not sold</span><button type="reset" class="button quiet">Discard</button><button type="submit" class="button main">Save the prices</button></footer></section>
 </form>
+
+<form class="panel" method="post" action="{{ path('touring_tour_cancellation', {uuid: tour.uuid}) }}" data-cancellation novalidate style="margin-top: var(--gap, 16px)">
+    <header class="panel-head"><h2>Cancellation</h2><p>What cancelling a booking of this tour costs</p></header>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_tour_cancellation') }}">
+    {% if wrong.cancellation is defined %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ wrong.cancellation }}</span></div>{% endif %}
+    <div class="grid-2"><div class="field"><label for="cancellation-mode">Its cancellation</label>
+        <select class="select" id="cancellation-mode" name="mode">
+            <option value="follow"{{ cancellation.mode == 'follow' ? ' selected' }}>The tours’ terms: {{ cancellation.terms }}</option>
+            <option value="no_charge"{{ cancellation.mode == 'no_charge' ? ' selected' }}>No charge to cancel</option>
+            <option value="own"{{ cancellation.mode == 'own' ? ' selected' }}>Its own tiers, below</option>
+        </select></div></div>
+    <table class="table">
+        <thead><tr><th>From days before it starts</th><th>Share of the price charged, per cent</th></tr></thead>
+        <tbody>
+        {% for row in cancellation.rows %}
+            <tr><td><input class="input" name="tiers[{{ loop.index0 }}][days]" value="{{ row[0] }}" inputmode="numeric" aria-label="Tier {{ loop.index }}, days before it starts"></td>
+                <td><input class="input" name="tiers[{{ loop.index0 }}][percent]" value="{{ row[1] }}" inputmode="numeric" aria-label="Tier {{ loop.index }}, per cent"></td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <footer class="panel-foot"><span class="state">Its own tiers count only when chosen; a row left empty is left out</span><button type="submit" class="button main">Save the cancellation</button></footer>
+</form>
 {% endblock %}

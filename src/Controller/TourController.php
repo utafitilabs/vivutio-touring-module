@@ -35,6 +35,7 @@ use Vivutio\Touring\Model\FeeQuote;
 use Vivutio\Touring\Model\TourPrice;
 use Vivutio\Touring\Repository\TourRepository;
 use Vivutio\Touring\Service\ParkFeeService;
+use Vivutio\Touring\Service\TourCancellationService;
 use Vivutio\Touring\Service\TourDepartureService;
 use Vivutio\Touring\Service\TourPriceService;
 use Vivutio\Touring\Service\TourSeasonService;
@@ -55,6 +56,7 @@ final readonly class TourController
     public const string ARCHIVE = 'touring_tour_archive';
     public const string ITINERARY = 'touring_tour_itinerary';
     public const string PRICES = 'touring_tour_prices';
+    public const string CANCELLATION = 'touring_tour_cancellation';
 
     public const string READ = 'tours.read';
     public const string MANAGE = 'tours.manage';
@@ -68,6 +70,7 @@ final readonly class TourController
         private TourPriceService $prices,
         private TourSeasonService $seasons,
         private TourDepartureService $departures,
+        private TourCancellationService $cancellation,
         private TourRepository $tours,
         private DestinationRepository $destinations,
         private CsrfTokenManagerInterface $tokens,
@@ -223,11 +226,34 @@ final readonly class TourController
         return new RedirectResponse($this->urls->generate(self::PRICES, ['uuid' => $tour->getUuid()]));
     }
 
+    #[Route('/tours/{uuid}/cancellation', name: self::CANCELLATION, requirements: ['uuid' => Requirement::UUID], methods: ['POST'])]
+    #[IsGranted(self::MANAGE)]
+    public function cancellation(
+        Request $request,
+        #[MapEntity(mapping: ['uuid' => 'uuid'])]
+        Tour $tour,
+    ): Response {
+        $sent = $request->getPayload()->all();
+        $typed = ['mode' => \is_string($sent['mode'] ?? null) ? $sent['mode'] : '', 'rows' => TourCancellationController::rows($sent)];
+        if (!$this->tokens->isTokenValid(new CsrfToken('touring_tour_cancellation', \is_string($sent['_token'] ?? null) ? $sent['_token'] : ''))) {
+            return $this->pricesPage($tour, null, expired: true, cancellation: $typed);
+        }
+
+        try {
+            $this->cancellation->saveTour($tour, $typed['mode'], $typed['rows']);
+        } catch (InvalidTourException $refusal) {
+            return $this->pricesPage($tour, null, ['cancellation' => $refusal->getMessage()], cancellation: $typed);
+        }
+
+        return new RedirectResponse($this->urls->generate(self::PRICES, ['uuid' => $tour->getUuid()]));
+    }
+
     /**
-     * @param array<mixed>|null     $sent
-     * @param array<string, string> $wrong
+     * @param array<mixed>|null                                           $sent
+     * @param array<string, string>                                       $wrong
+     * @param array{mode: string, rows: list<array{string, string}>}|null $cancellation the tour's own terms as typed
      */
-    private function pricesPage(Tour $tour, ?array $sent, array $wrong = [], bool $expired = false): Response
+    private function pricesPage(Tour $tour, ?array $sent, array $wrong = [], bool $expired = false, ?array $cancellation = null): Response
     {
         $brackets = $tour->getBrackets();
 
@@ -239,6 +265,11 @@ final readonly class TourController
             'tiers' => [] === $tour->getTiers() ? ['The tour'] : $tour->getTiers(),
             'seasons' => $this->seasons->seasons(),
             'card' => null === $sent || !\is_array($sent['rates'] ?? null) ? $this->prices->card($tour) : $sent['rates'],
+            'cancellation' => [
+                'mode' => $cancellation['mode'] ?? TourCancellationService::modeOf($tour),
+                'rows' => array_pad($cancellation['rows'] ?? array_map(static fn (array $t): array => [(string) $t['days'], (string) $t['percent']], $tour->getCancellation() ?? []), 4, ['', '']),
+                'terms' => implode(', ', \array_slice(TourCancellationService::bands($this->cancellation->terms()), 1)) ?: 'no charge to cancel',
+            ],
             'wrong' => $wrong,
             'expired' => $expired,
         ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);

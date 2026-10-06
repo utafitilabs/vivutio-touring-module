@@ -30,6 +30,7 @@ use Vivutio\Touring\Entity\TourBooking;
 use Vivutio\Touring\Enum\TourBookingStatusEnum;
 use Vivutio\Touring\Exception\InvalidTourException;
 use Vivutio\Touring\Service\TourBookingService;
+use Vivutio\Touring\Service\TourCancellationService;
 use Vivutio\Touring\Service\TourDepartureService;
 use Vivutio\Touring\Service\TourService;
 
@@ -213,6 +214,9 @@ final readonly class TourBookingController
             'length' => $length,
             'ends' => $booking->getStart()->modify(\sprintf('+%d days', max(0, $length - 1))),
             'residency' => ResidencyEnum::tryFrom($booking->getResidency()),
+            'bands' => TourCancellationService::bands($booking->getCancellationTiers()),
+            'charge_today' => TourCancellationService::today($booking, $this->clock->now()),
+            'cancelled_when' => null === $booking->getCancelledAt() ? null : TourCancellationService::when(TourCancellationService::charge($booking, $booking->getCancelledAt())['days']),
             'today' => $this->clock->now(),
             'wrong' => $wrong,
             'expired' => $expired,
