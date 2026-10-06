@@ -81,7 +81,7 @@ final class TheToursTest extends WebTestCase
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
         self::assertSame(['Day 1 · Arrival in Arusha', 'Days 2–3 · Serengeti National Park'], $page->filter('[data-day] h3')->each(static fn (Crawler $title): string => trim($title->text())));
-        self::assertSame(['Silver: Vivutio Stand-in Lodge', 'Gold: Ngorongoro Rim Camp'], $page->filter('[data-day]')->first()->filter('[data-stay]')->each(static fn (Crawler $stay): string => trim((string) preg_replace('/\s+/', ' ', $stay->text()))));
+        self::assertSame([['Silver', 'Vivutio Stand-in Lodge'], ['Gold', 'Ngorongoro Rim Camp']], $page->filter('[data-day]')->first()->filter('[data-stay]')->each(static fn (Crawler $stay): array => [trim($stay->filter('span')->text()), trim($stay->filter('b')->text())]));
         self::assertSame('Dinner · Airport pickup and transfer', trim($page->filter('[data-day]')->first()->filter('[data-meta]')->text()));
         self::assertSame('2 nights · 330 km · 7 hours', trim($page->filter('[data-day]')->eq(1)->filter('[data-meta]')->text()));
         self::assertSame('3 days · 3 nights', trim($page->filter('.band [data-length]')->text()));

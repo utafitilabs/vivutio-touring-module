@@ -25,11 +25,12 @@
     <div class="stack">
         <section class="panel">
             <header class="panel-head"><h2>Itinerary</h2><p>Each stay in order, and where its nights are spent</p>{% if may %}<a class="button small outline" href="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}">Edit the itinerary</a>{% endif %}</header>
+            <div class="stack">
             {% for day in tour.days %}
                 <article class="day" data-day>
                     <header><h3>{{ schedule.labels[day.number] }} · {{ titles[day.number] }}</h3></header>
                     {% if day.destinations and day.title %}<div class="fact"><span>Route</span><b data-destinations>{% for key in day.destinations %}{{ names[key] ?? key }}{{ not loop.last ? ' → ' }}{% endfor %}</b></div>{% endif %}
-                    {% for tier, lodge in stays[day.number] %}<div class="fact" data-stay><span>{{ tier }}:</span> <b>{{ lodge }}</b></div>{% endfor %}
+                    {% for tier, lodge in stays[day.number] %}<div class="fact" data-stay><span>{{ tier }}</span><b>{{ lodge }}</b></div>{% endfor %}
                     {%- set meta = [] -%}
                     {%- if day.nights != 1 %}{% set meta = meta|merge([day.nights == 0 ? 'No night: the tour ends' : day.nights ~ ' nights']) %}{% endif -%}
                     {%- if day.meals %}{% set meta = meta|merge([day.meals|join(', ')|capitalize]) %}{% endif -%}
@@ -43,6 +44,7 @@
             {% else %}
                 <div class="empty"><b>No days yet</b><span>A tour is written stay by stay{% if may %}: <a href="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}">write its itinerary</a>{% endif %}.</span></div>
             {% endfor %}
+            </div>
         </section>
     </div>
 

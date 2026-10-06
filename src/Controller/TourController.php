@@ -287,7 +287,7 @@ final readonly class TourController
                     'activities' => $day->getActivities(),
                     'description' => $day->getDescription(),
                     'distance_km' => null === $day->getDistanceKm() ? '' : (string) $day->getDistanceKm(),
-                    'drive_hours' => $day->getDriveHours() ?? '',
+                    'drive_hours' => null === $day->getDriveHours() ? '' : rtrim(rtrim($day->getDriveHours(), '0'), '.'),
                 ];
             }
         } else {
