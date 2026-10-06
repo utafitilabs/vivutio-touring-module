@@ -55,7 +55,7 @@ class TourDay
     #[ORM\Column(length: self::TITLE_MAX_LENGTH)]
     private string $title = '';
 
-    /** @var list<string> the destinations' keys, "tz-serengeti" */
+    /** @var list<string> the destinations' keys, "tz-serengeti-national-park" */
     #[ORM\Column(type: Types::JSON)]
     private array $destinations = [];
 

@@ -71,7 +71,7 @@ final class TheToursTest extends WebTestCase
         ]));
         $page = $this->browser->followRedirect();
         $this->browser->submit($page->selectButton('Save itinerary')->form([
-            'days[1][destinations][0]' => 'tz-serengeti',
+            'days[1][destinations][0]' => 'tz-serengeti-national-park',
             'days[1][nights]' => '2',
             'days[1][stays][0]' => 'lodge:'.StandInPlaces::LODGE,
             'days[1][distance_km]' => '330',
@@ -133,20 +133,20 @@ final class TheToursTest extends WebTestCase
     public function testTheParkFeesForAPartyStartingOnADay(): void
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
-        $this->fee('tz-tarangire', 'entry', 'adult', 'person_day', '60');
-        $this->fee('tz-tarangire', 'entry', 'child', 'person_day', '20');
-        $this->fee('tz-serengeti', 'entry', 'adult', 'person_day', '80');
-        $this->fee('tz-serengeti', 'entry', 'child', 'person_day', '20');
-        $this->fee('tz-serengeti', 'concession', 'adult', 'vehicle_entry', '40');
-        $this->fee('tz-ngorongoro', 'conservation', 'adult', 'person_entry', '70');
-        $this->fee('tz-ngorongoro', 'conservation', 'child', 'person_entry', '20');
+        $this->fee('tz-tarangire-national-park', 'entry', 'adult', 'person_day', '60');
+        $this->fee('tz-tarangire-national-park', 'entry', 'child', 'person_day', '20');
+        $this->fee('tz-serengeti-national-park', 'entry', 'adult', 'person_day', '80');
+        $this->fee('tz-serengeti-national-park', 'entry', 'child', 'person_day', '20');
+        $this->fee('tz-serengeti-national-park', 'concession', 'adult', 'vehicle_entry', '40');
+        $this->fee('tz-ngorongoro-conservation-area', 'conservation', 'adult', 'person_entry', '70');
+        $this->fee('tz-ngorongoro-conservation-area', 'conservation', 'child', 'person_entry', '20');
         $tour = $this->addTour('Northern Circuit');
         $this->writeDays($tour, ['Tarangire', 'Serengeti', 'The Crater', 'Lake Manyara'], [
-            'days[0][destinations][0]' => 'tz-tarangire',
-            'days[1][destinations][0]' => 'tz-serengeti',
+            'days[0][destinations][0]' => 'tz-tarangire-national-park',
+            'days[1][destinations][0]' => 'tz-serengeti-national-park',
             'days[1][nights]' => '2',
-            'days[2][destinations][0]' => 'tz-ngorongoro',
-            'days[3][destinations][0]' => 'tz-lake-manyara',
+            'days[2][destinations][0]' => 'tz-ngorongoro-conservation-area',
+            'days[3][destinations][0]' => 'tz-lake-manyara-national-park',
         ]);
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'?start=2026-11-01&adults=2&children=1&residency=non_resident');

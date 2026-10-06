@@ -41,7 +41,7 @@ final class TouringAuthorityTest extends AuthorityTestCase
 
     protected static function probes(): array
     {
-        $itinerary = ['tiers' => '', 'step' => 'save', 'days' => [['title' => 'Probed day', 'destinations' => ['tz-tarangire', '', ''], 'stays' => [''], 'nights' => '1', 'activities' => '', 'description' => '', 'distance_km' => '', 'drive_hours' => '']]];
+        $itinerary = ['tiers' => '', 'step' => 'save', 'days' => [['title' => 'Probed day', 'destinations' => ['tz-tarangire-national-park', '', ''], 'stays' => [''], 'nights' => '1', 'activities' => '', 'description' => '', 'distance_km' => '', 'drive_hours' => '']]];
 
         return [
             new Probe(TourController::REGISTER, 'GET', '/tours'),
