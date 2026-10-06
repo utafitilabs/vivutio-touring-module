@@ -69,6 +69,10 @@ class TourDay
     #[ORM\Column(length: self::ACTIVITIES_MAX_LENGTH)]
     private string $activities = '';
 
+    /** @var list<string> the activities it takes that its destinations charge for, as "destination key:activity" */
+    #[ORM\Column(type: Types::JSON)]
+    private array $takes = [];
+
     /** @var list<string> */
     #[ORM\Column(type: Types::JSON)]
     private array $meals = [];
@@ -192,6 +196,24 @@ class TourDay
     public function getActivities(): string
     {
         return $this->activities;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getTakes(): array
+    {
+        return $this->takes;
+    }
+
+    /**
+     * @param list<string> $takes
+     */
+    public function setTakes(array $takes): static
+    {
+        $this->takes = $takes;
+
+        return $this;
     }
 
     public function setActivities(string $activities): static

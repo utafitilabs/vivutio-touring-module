@@ -385,6 +385,7 @@ final readonly class TourController
                     'nights' => (string) $day->getNights(),
                     'meals' => $day->getMeals(),
                     'activities' => $day->getActivities(),
+                    'takes' => $day->getTakes(),
                     'description' => $day->getDescription(),
                     'distance_km' => null === $day->getDistanceKm() ? '' : (string) $day->getDistanceKm(),
                     'drive_hours' => null === $day->getDriveHours() ? '' : rtrim(rtrim($day->getDriveHours(), '0'), '.'),
@@ -403,6 +404,7 @@ final readonly class TourController
                     'nights' => $text('nights'),
                     'meals' => array_keys(array_filter(\is_array($day['meals'] ?? null) ? $day['meals'] : [])),
                     'activities' => $text('activities'),
+                    'takes' => array_values(array_filter(\is_array($day['takes'] ?? null) ? $day['takes'] : [], 'is_string')),
                     'description' => $text('description'),
                     'distance_km' => $text('distance_km'),
                     'drive_hours' => $text('drive_hours'),
@@ -426,6 +428,7 @@ final readonly class TourController
             'destination_names' => $this->destinationNames(),
             'overnight_choices' => $this->service->overnightChoices(),
             'meals' => MealEnum::cases(),
+            'offered' => $this->service->offeredActivities(),
             'wrong' => $wrong,
             'expired' => $expired,
         ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);

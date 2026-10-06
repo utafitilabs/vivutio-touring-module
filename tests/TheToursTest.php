@@ -21,6 +21,8 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\DomCrawler\Field\ChoiceFormField;
+use Symfony\Component\DomCrawler\Form;
 use Vivutio\Bundle\IdentityBundle\Entity\Department;
 use Vivutio\Bundle\IdentityBundle\Entity\Position;
 use Vivutio\Bundle\IdentityBundle\Entity\User;
@@ -130,6 +132,39 @@ final class TheToursTest extends WebTestCase
     }
 
     /** What the parks charge a party: a stay of two nights is two days there; entering is charged once. */
+    /** An activity's fee, the Crater descent, is charged only on a day that takes it, once on its first day. */
+    public function testAnActivitysFeeIsChargedOnlyOnADayThatTakesIt(): void
+    {
+        $this->signedInAs($this->person('Baraka', TierEnum::Admin));
+        $this->fee('tz-ngorongoro-conservation-area', 'conservation', 'adult', 'person_day', '70.80');
+        $this->fee('tz-ngorongoro-conservation-area', 'service', 'adult', 'vehicle_entry', '295', 'Crater descent');
+        $tour = $this->addTour('Northern Circuit');
+        $this->writeDays($tour, ['The rim', 'The Crater', 'Departure'], [
+            'days[0][destinations][0]' => 'tz-ngorongoro-conservation-area',
+            'days[1][destinations][0]' => 'tz-ngorongoro-conservation-area',
+            'days[2][nights]' => '0',
+        ]);
+
+        $page = $this->itinerary($tour);
+        $takes = $page->filter('input[name="days[1][takes][]"]');
+        self::assertSame(['tz-ngorongoro-conservation-area:Crater descent'], $takes->each(static fn (Crawler $box): string => (string) $box->attr('value')));
+        self::assertSame('Crater descent · Ngorongoro Conservation Area', trim($takes->closest('label')?->text() ?? ''));
+        $form = $page->selectButton('Save itinerary')->form();
+        $this->takes($form)->tick();
+        $this->browser->submit($form);
+        self::assertResponseRedirects('/tours/'.$tour->getUuid().'/itinerary');
+
+        $party = '?start=2026-11-01&adults=2&children=0&residency=non_resident';
+        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().$party);
+        self::assertSame(['USD 141.60', 'USD 436.60', '—'], $page->filter('[data-day] [data-day-fees]')->each(static fn (Crawler $cell): string => trim($cell->text())));
+        self::assertSame('USD 578.20', trim($page->filter('[data-fees-total]')->text()));
+
+        $form = $this->itinerary($tour)->selectButton('Save itinerary')->form();
+        $this->takes($form)->untick();
+        $this->browser->submit($form);
+        self::assertSame('USD 283.20', trim($this->browser->request('GET', '/tours/'.$tour->getUuid().$party)->filter('[data-fees-total]')->text()));
+    }
+
     public function testTheParkFeesForAPartyStartingOnADay(): void
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
@@ -259,13 +294,23 @@ final class TheToursTest extends WebTestCase
         return $tour;
     }
 
-    private function fee(string $key, string $kind, string $guest, string $per, string $amount): void
+    /** The second day's Crater descent box, the one activity the test's tour offers. */
+    private function takes(Form $form): ChoiceFormField
+    {
+        $boxes = $form['days[1][takes]'];
+        $box = \is_array($boxes) ? $boxes[0] : $boxes;
+        self::assertInstanceOf(ChoiceFormField::class, $box);
+
+        return $box;
+    }
+
+    private function fee(string $key, string $kind, string $guest, string $per, string $amount, string $activity = ''): void
     {
         $destination = $this->em()->getRepository(Destination::class)->findOneBy(['key' => $key]);
         self::assertInstanceOf(Destination::class, $destination);
         $fees = static::getContainer()->get(DestinationFeeService::class);
         self::assertInstanceOf(DestinationFeeService::class, $fees);
-        $fees->add($destination, ['kind' => $kind, 'guest' => $guest, 'residency' => 'non_resident', 'per' => $per, 'amount' => $amount, 'currency' => 'USD', 'valid_from' => '2026-07-01', 'valid_to' => '2027-06-30']);
+        $fees->add($destination, ['kind' => $kind, 'guest' => $guest, 'residency' => 'non_resident', 'per' => $per, 'amount' => $amount, 'currency' => 'USD', 'valid_from' => '2026-07-01', 'valid_to' => '2027-06-30', 'activity' => $activity]);
     }
 
     private function accommodationPartner(): Partner

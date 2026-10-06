@@ -98,6 +98,7 @@ return static function (ContainerConfigurator $container): void {
             service(DestinationRepository::class),
             service(PlaceDirectoryService::class),
             service(PartnerDirectoryInterface::class),
+            service(DestinationFeeService::class),
         ]);
 
     $services->set('touring.park_fees', ParkFeeService::class)

@@ -30,7 +30,8 @@ use Vivutio\Touring\Model\FeeQuote;
  * destinations, and each is charged once a day: a fee a person a day every day, a fee a person an entry and a vehicle
  * an entry on the first day of each visit, a visit being the days in a row a
  * tour is there. The party travels in one vehicle. A city charges no entry,
- * so none is asked of it.
+ * so none is asked of it. A fee for an activity (the Crater descent) is
+ * charged only on a stay that takes it, once, on its first day.
  */
 final readonly class ParkFeeService
 {
@@ -59,20 +60,21 @@ final readonly class ParkFeeService
                         continue;
                     }
                     $entering = !\in_array($key, $yesterday, true);
-                    $forAdults = $this->fees->charged($destination, $date, GuestEnum::Adult, $residency);
-                    if ([] === $forAdults) {
+                    $takes = static fn (DestinationFee $fee): bool => null === $fee->getActivity() || (0 === $night && \in_array($key.':'.$fee->getActivity(), $stay->getTakes(), true));
+                    $forAdults = array_filter($this->fees->charged($destination, $date, GuestEnum::Adult, $residency), $takes);
+                    if ([] === array_filter($forAdults, static fn (DestinationFee $fee): bool => null === $fee->getActivity())) {
                         if (DestinationKindEnum::City !== $destination->getKind()) {
                             $missing[] = \sprintf('No fee entered for %s on %s', $destination->getName(), $date->format('j M Y'));
                         }
                         continue;
                     }
                     foreach ($forAdults as $fee) {
-                        self::add($charged, $fee, FeePerEnum::VehicleEntry === $fee->getPer() ? 1 : $adults, $entering);
+                        self::add($charged, $fee, FeePerEnum::VehicleEntry === $fee->getPer() ? 1 : $adults, $entering || null !== $fee->getActivity());
                     }
                     if ($children > 0) {
-                        foreach ($this->fees->charged($destination, $date, GuestEnum::Child, $residency) as $fee) {
+                        foreach (array_filter($this->fees->charged($destination, $date, GuestEnum::Child, $residency), $takes) as $fee) {
                             if (FeePerEnum::VehicleEntry !== $fee->getPer()) {
-                                self::add($charged, $fee, $children, $entering);
+                                self::add($charged, $fee, $children, $entering || null !== $fee->getActivity());
                             }
                         }
                     }

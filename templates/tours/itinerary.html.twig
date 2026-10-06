@@ -71,6 +71,9 @@
                     {% endfor %}
                 </div>
                 <div class="field{{ wrong[f ~ '[activities]'] is defined ? ' wrong' }}"><label for="day-{{ i }}-activities">Activities</label><input class="input" id="day-{{ i }}-activities" name="{{ f }}[activities]" value="{{ day.activities }}" maxlength="240">{{ tours_.hint(f ~ '[activities]', wrong, null) }}</div>
+                {%- set charged = [] -%}
+                {%- for key in day.destinations %}{% for activity in offered[key] ?? [] %}{% set charged = charged|merge([{value: key ~ ':' ~ activity, label: activity ~ ' · ' ~ (destination_names[key] ?? key)}]) %}{% endfor %}{% endfor -%}
+                {% if charged %}<fieldset class="field"><legend>Charged activities</legend>{% for take in charged %}<label class="check"><input type="checkbox" name="{{ f }}[takes][]" value="{{ take.value }}"{{ take.value in day.takes ? ' checked' }}> {{ take.label }}</label>{% endfor %}<p class="hint">An activity’s fee is charged only on a day that takes it</p></fieldset>{% endif %}
                 <fieldset class="field"><legend>Meals included</legend>{% for meal in meals %}<label class="check"><input type="checkbox" name="{{ f }}[meals][{{ meal.value }}]" value="1"{{ meal.value in day.meals ? ' checked' }}> {{ meal.label }}</label>{% endfor %}</fieldset>
                 <div class="field{{ wrong[f ~ '[description]'] is defined ? ' wrong' }}"><label for="day-{{ i }}-description">What happens</label><textarea class="textarea" id="day-{{ i }}-description" name="{{ f }}[description]" rows="2">{{ day.description }}</textarea>{{ tours_.hint(f ~ '[description]', wrong, null) }}</div>
             </details>

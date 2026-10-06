@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Vivutio\Bundle\IdentityBundle\Entity\Office;
 use Vivutio\Bundle\IdentityBundle\Service\PlaceDirectoryService;
 use Vivutio\Bundle\PlaceBundle\Repository\DestinationRepository;
+use Vivutio\Bundle\PlaceBundle\Service\DestinationFeeService;
 use Vivutio\Contracts\Partner\PartnerDirectoryInterface;
 use Vivutio\Touring\Entity\Tour;
 use Vivutio\Touring\Entity\TourDay;
@@ -46,6 +47,7 @@ final readonly class TourService
         private DestinationRepository $destinations,
         private PlaceDirectoryService $places,
         private PartnerDirectoryInterface $partners,
+        private DestinationFeeService $fees,
     ) {
     }
 
@@ -126,7 +128,7 @@ final readonly class TourService
 
         [$verb, $at] = array_pad(explode(':', $step, 2), 2, '');
         $at = ctype_digit($at) && (int) $at < \count($drafts) ? (int) $at : null;
-        $blank = ['title' => '', 'destinations' => [], 'stays' => [], 'nights' => 1, 'meals' => [], 'activities' => '', 'description' => '', 'distance' => null, 'hours' => null];
+        $blank = ['title' => '', 'destinations' => [], 'stays' => [], 'nights' => 1, 'meals' => [], 'activities' => '', 'takes' => [], 'description' => '', 'distance' => null, 'hours' => null];
         $open = null;
         switch (true) {
             case 'add' === $verb:
@@ -171,6 +173,7 @@ final readonly class TourService
                 ->setNights($draft['nights'])
                 ->setMeals($draft['meals'])
                 ->setActivities($draft['activities'])
+                ->setTakes($draft['takes'])
                 ->setDescription($draft['description'])
                 ->setDrive($draft['distance'], $draft['hours']);
         }
@@ -308,7 +311,7 @@ final readonly class TourService
      *
      * @param array<mixed> $day
      *
-     * @return array{title: string, destinations: list<string>, stays: list<string|null>, nights: int, meals: list<string>, activities: string, description: string, distance: ?int, hours: ?string}
+     * @return array{title: string, destinations: list<string>, stays: list<string|null>, nights: int, meals: list<string>, activities: string, takes: list<string>, description: string, distance: ?int, hours: ?string}
      *
      * @throws InvalidTourException
      */
@@ -359,6 +362,14 @@ final readonly class TourService
         if (mb_strlen($activities) > TourDay::ACTIVITIES_MAX_LENGTH) {
             throw new InvalidTourException($field('activities'), \sprintf('Activities can be at most %d characters.', TourDay::ACTIVITIES_MAX_LENGTH));
         }
+        $offered = $this->offeredActivities();
+        $takes = [];
+        foreach (\is_array($day['takes'] ?? null) ? $day['takes'] : [] as $take) {
+            [$key, $activity] = array_pad(explode(':', \is_string($take) ? $take : '', 2), 2, '');
+            if (\in_array($key, $keys, true) && \in_array($activity, $offered[$key] ?? [], true) && !\in_array($key.':'.$activity, $takes, true)) {
+                $takes[] = $key.':'.$activity;
+            }
+        }
         $description = $text('description');
         if (mb_strlen($description) > TourDay::DESCRIPTION_MAX_LENGTH) {
             throw new InvalidTourException($field('description'), \sprintf('A description can be at most %d characters.', TourDay::DESCRIPTION_MAX_LENGTH));
@@ -379,10 +390,29 @@ final readonly class TourService
             'nights' => (int) $nights,
             'meals' => $meals,
             'activities' => $activities,
+            'takes' => $takes,
             'description' => $description,
             'distance' => '' === $distance ? null : (int) $distance,
             'hours' => '' === $hours ? null : number_format((float) $hours, 1, '.', ''),
         ];
+    }
+
+    /**
+     * The activities each destination charges for, by its key.
+     *
+     * @return array<string, list<string>>
+     */
+    public function offeredActivities(): array
+    {
+        $offered = [];
+        foreach ($this->destinations->findAll() as $destination) {
+            $names = $this->fees->activitiesAt($destination);
+            if ([] !== $names) {
+                $offered[$destination->getKey()] = $names;
+            }
+        }
+
+        return $offered;
     }
 
     /**
