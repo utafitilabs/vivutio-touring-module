@@ -18,8 +18,10 @@ use Symfony\Component\Uid\Uuid;
 use Vivutio\Bundle\IdentityBundle\Test\AuthorityTestCase;
 use Vivutio\Bundle\IdentityBundle\Test\Probe;
 use Vivutio\Touring\Controller\SeasonController;
+use Vivutio\Touring\Controller\TourBookingController;
 use Vivutio\Touring\Controller\TourController;
 use Vivutio\Touring\Entity\Tour;
+use Vivutio\Touring\Entity\TourBooking;
 use Vivutio\Touring\Entity\TourDay;
 use Vivutio\Touring\Entity\TourSeason;
 use Vivutio\Touring\Enum\SeasonToneEnum;
@@ -38,6 +40,8 @@ final class TouringAuthorityTest extends AuthorityTestCase
     private const string TOUR = '/tours/'.self::TOUR_UUID;
     private const string SEASON_UUID = '0199b1c0-0000-7000-8000-00000000a003';
     private const string SEASON = '/tours/seasons/'.self::SEASON_UUID;
+    private const string BOOKING_UUID = '0199b1c0-0000-7000-8000-00000000a004';
+    private const string BOOKING = '/tours/bookings/'.self::BOOKING_UUID;
 
     protected static function getKernelClass(): string
     {
@@ -61,9 +65,16 @@ final class TouringAuthorityTest extends AuthorityTestCase
             new Probe(SeasonController::SEASONS, 'GET', '/tours/seasons'),
             new Probe(SeasonController::CONFIGURE, 'GET', self::SEASON.'/configure'),
             new Probe(SeasonController::CONFIGURE, 'POST', self::SEASON.'/configure', ['name' => 'Probed season', 'tone' => '2', 'rest' => '1'], formAt: self::SEASON.'/configure'),
+            new Probe(TourBookingController::REGISTER, 'GET', '/tours/bookings'),
+            new Probe(TourBookingController::BOOKING, 'GET', self::BOOKING),
+            new Probe(TourBookingController::NEW, 'GET', '/tours/bookings/new'),
+            new Probe(TourBookingController::NEW, 'POST', '/tours/bookings/new', ['step' => 'price'], formAt: '/tours/bookings/new'),
+            // Confirmed by the first allowed; the next finds it confirmed already.
+            new Probe(TourBookingController::CONFIRM, 'POST', self::BOOKING.'/confirm', formAt: self::BOOKING),
+            // Cancelled by the first allowed; the next finds it cancelled already.
+            new Probe(TourBookingController::CANCEL, 'POST', self::BOOKING.'/cancel', ['reason' => 'Probed'], formAt: self::BOOKING),
             new Probe(TourController::OPEN, 'POST', self::TOUR.'/open', formAt: self::TOUR.'/configure'),
             new Probe(TourController::ARCHIVE, 'POST', self::TOUR.'/archive', formAt: self::TOUR.'/configure'),
-            // Sent by each kind of person in turn, so the second allowed finds the name taken.
             // Sent by each kind of person in turn, so the second allowed finds the name taken.
             new Probe(SeasonController::ADD, 'POST', '/tours/seasons', ['name' => 'Added by a probe', 'tone' => '1'], formAt: '/tours/seasons'),
             // Removed by the first allowed, and not found by the next.
@@ -90,5 +101,10 @@ final class TouringAuthorityTest extends AuthorityTestCase
         $tour->getDays()->add($day);
         $entityManager->persist($day);
         $entityManager->persist((new TourSeason('Probed season', SeasonToneEnum::Busy))->setUuid(Uuid::fromString(self::SEASON_UUID)));
+        $entityManager->persist((new TourBooking($tour, 'PT-0001', 'Probed party', new \DateTimeImmutable('2027-08-02'), new \DateTimeImmutable('2026-10-06 09:00')))
+            ->setUuid(Uuid::fromString(self::BOOKING_UUID))
+            ->setParty(2, 0, 'non_resident')
+            ->setPrice(0, 'The tour', 'Probed season', '2 people', 'USD', 100000, 200000, 200000)
+            ->setHeldUntil(new \DateTimeImmutable('2027-01-01')));
     }
 }

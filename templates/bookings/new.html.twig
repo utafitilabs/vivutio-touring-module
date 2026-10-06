@@ -1,0 +1,51 @@
+{# A new tour booking, as drawn (vivutio-designs tours/bookings/new): the tour,
+   the day and the party, priced before it is recorded; who it is for and the
+   partner it comes through; held to a day or confirmed. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}New tour booking{% endblock %}
+{% block here %}tour_bookings{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_bookings') }}">Tour bookings</a> / New booking</nav><div class="title"><h1>New booking</h1></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_bookings') }}">{{ icons.icon('left', 15) }} Back to the bookings</a></div>
+</header>
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Try again.</span></div>{% endif %}
+
+<form class="panel" method="post" action="{{ path('touring_booking_new') }}" novalidate>
+    <header class="panel-head"><h2>Booking</h2><p>Priced by the tour’s prices when it is recorded, and kept</p></header>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_booking_new') }}">
+    <span class="label">The tour</span>
+    <div class="grid-3">
+        <div class="field{{ wrong.tour is defined ? ' wrong' }}"><label for="booking-tour">Tour</label><select class="select" id="booking-tour" name="tour">{% for tour in tours %}<option value="{{ tour.uuid }}"{{ (tour.uuid ~ '') == typed.tour ? ' selected' }}>{{ tour.name }}</option>{% else %}<option value="">No tour is on sale</option>{% endfor %}</select>{{ tours_.hint('tour', wrong, null) }}</div>
+        <div class="field{{ wrong.start is defined ? ' wrong' }}"><label for="booking-start">Starting</label><input class="input" id="booking-start" name="start" type="date" value="{{ typed.start }}" min="{{ today|date('Y-m-d') }}">{{ tours_.hint('start', wrong, null) }}</div>
+        <div class="field{{ wrong.tier is defined ? ' wrong' }}"><label for="booking-tier">Tier</label><select class="select" id="booking-tier" name="tier">{% for t, tier in tiers %}<option value="{{ t }}"{{ (t ~ '') == typed.tier ? ' selected' }}>{{ tier }}</option>{% endfor %}</select>{{ tours_.hint('tier', wrong, null) }}</div>
+    </div>
+    <div class="grid-3">
+        <div class="field{{ wrong.adults is defined ? ' wrong' }}"><label for="booking-adults">Adults</label><input class="input" id="booking-adults" name="adults" value="{{ typed.adults }}" inputmode="numeric">{{ tours_.hint('adults', wrong, null) }}</div>
+        <div class="field{{ wrong.children is defined ? ' wrong' }}"><label for="booking-children">Children</label><input class="input" id="booking-children" name="children" value="{{ typed.children }}" inputmode="numeric">{{ tours_.hint('children', wrong, null) }}</div>
+        <div class="field{{ wrong.residency is defined ? ' wrong' }}"><label for="booking-residency">Residency</label><select class="select" id="booking-residency" name="residency">{% for residency in residencies %}<option value="{{ residency.value }}"{{ residency.value == typed.residency ? ' selected' }}>{{ residency.label }}</option>{% endfor %}</select>{{ tours_.hint('residency', wrong, null) }}</div>
+    </div>
+    {% if quoted %}<div class="notice{{ quoted.price.priced ? '' : ' warn' }}" role="status" data-price><span>{% if quoted.price.priced %}<b>{{ quoted.price.says }}</b>{% if quoted.after %}; {{ quoted.after }}{% endif %}{% else %}{{ quoted.price.says }}{% endif %}</span></div>{% endif %}
+
+    <span class="label">Who it is for</span>
+    <div class="grid-2">
+        <div class="field{{ wrong.guest is defined ? ' wrong' }}"><label for="booking-guest">For</label><input class="input" id="booking-guest" name="guest" value="{{ typed.guest }}" maxlength="120">{{ tours_.hint('guest', wrong, 'The lead guest, or the party: Mollel party') }}</div>
+        <div class="field{{ wrong.partner is defined ? ' wrong' }}"><label for="booking-partner">Partner</label><select class="select" id="booking-partner" name="partner"><option value="">Direct</option>{% for partner in partners %}<option value="{{ partner.partnerId }}"{{ partner.partnerId == typed.partner ? ' selected' }}>{{ partner.name }}</option>{% endfor %}</select>{{ tours_.hint('partner', wrong, 'The agent or operator it comes through, priced at their terms') }}</div>
+        <div class="field{{ wrong.booked_by is defined ? ' wrong' }}"><label for="booking-by">Booked by</label><input class="input" id="booking-by" name="booked_by" value="{{ typed.booked_by }}" maxlength="120">{{ tours_.hint('booked_by', wrong, 'Who made it: the guest, or somebody at the partner') }}</div>
+        <div class="field{{ wrong.their_reference is defined ? ' wrong' }}"><label for="booking-theirs">Their reference</label><input class="input" id="booking-theirs" name="their_reference" value="{{ typed.their_reference }}" maxlength="60">{{ tours_.hint('their_reference', wrong, null) }}</div>
+    </div>
+
+    <span class="label">Held or confirmed</span>
+    <div class="grid-3">
+        <div class="field{{ wrong.status is defined ? ' wrong' }}"><label for="booking-status">It is</label><select class="select" id="booking-status" name="status"><option value="provisional"{{ typed.status == 'provisional' ? ' selected' }}>Provisional, held until a day</option><option value="confirmed"{{ typed.status != 'provisional' ? ' selected' }}>Confirmed</option></select>{{ tours_.hint('status', wrong, null) }}</div>
+        <div class="field{{ wrong.held_until is defined ? ' wrong' }}"><label for="booking-held">Held until</label><input class="input" id="booking-held" name="held_until" type="date" value="{{ typed.held_until }}">{{ tours_.hint('held_until', wrong, 'A provisional booking is held to the end of this day') }}</div>
+    </div>
+    <div class="field{{ wrong.notes is defined ? ' wrong' }}"><label for="booking-notes">Notes</label><textarea class="textarea" id="booking-notes" name="notes" rows="3">{{ typed.notes }}</textarea>{{ tours_.hint('notes', wrong, null) }}</div>
+
+    <footer class="panel-foot"><span class="state">The price shown is the one kept</span><button type="submit" name="step" value="price" class="button outline">Price it again</button><button type="submit" class="button main">Record the booking</button></footer>
+</form>
+{% endblock %}

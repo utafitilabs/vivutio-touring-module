@@ -62,6 +62,7 @@
                 <button type="submit" class="button outline">Price the party</button>
             </form>
             {% if price %}<p class="{{ price.priced ? '' : 'hint' }}" data-price>{% if price.priced %}<b>{{ price.says }}</b>{% else %}{{ price.says }}{% endif %}</p>{% endif %}
+            {% if price and price.priced and tour.status.value == 'open' and door('tour_bookings.record') %}<a class="button main" href="{{ path('touring_booking_new', {tour: tour.uuid, start: asked.start, adults: asked.adults, children: asked.children, residency: asked.residency, tier: asked.tier}) }}">Book this party</a>{% endif %}
             {% if quote %}
                 <div class="fact"><span>Park fees, all days</span><b data-fees-total>{{ tours_.amounts(quote.totals) }}</b></div>
                 {% for line in quote.missing %}<p class="hint" data-missing>{{ line }}</p>{% endfor %}

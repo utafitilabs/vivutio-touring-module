@@ -172,6 +172,90 @@ Checks: `tours.manage`
 | Admin | redirected to /tours/seasons |
 | Super Admin | redirected to /tours/seasons |
 
+## touring_bookings: GET /tours/bookings
+
+Checks: `tour_bookings.read`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Tour bookings · vivutio |
+| Super Admin | allowed: Tour bookings · vivutio |
+
+## touring_booking: GET /tours/bookings/0199b1c0-0000-7000-8000-00000000a004
+
+Checks: `tour_bookings.read`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: PT-0001 · Tour bookings · vivutio |
+| Super Admin | allowed: PT-0001 · Tour bookings · vivutio |
+
+## touring_booking_new: GET /tours/bookings/new
+
+Checks: `tour_bookings.record`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: New tour booking · vivutio |
+| Super Admin | allowed: New tour booking · vivutio |
+
+## touring_booking_new: POST /tours/bookings/new
+
+Checks: `tour_bookings.record`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: New tour booking · vivutio |
+| Super Admin | allowed: New tour booking · vivutio |
+
+## touring_booking_confirm: POST /tours/bookings/0199b1c0-0000-7000-8000-00000000a004/confirm
+
+Checks: `tour_bookings.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/bookings/0199b1c0-0000-7000-8000-00000000a004 |
+| Super Admin | answered 422 |
+
+## touring_booking_cancel: POST /tours/bookings/0199b1c0-0000-7000-8000-00000000a004/cancel
+
+Checks: `tour_bookings.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/bookings/0199b1c0-0000-7000-8000-00000000a004 |
+| Super Admin | answered 422 |
+
 ## touring_tour_open: POST /tours/0199b1c0-0000-7000-8000-00000000a001/open
 
 Checks: `tours.manage`

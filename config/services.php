@@ -21,12 +21,15 @@ use Vivutio\Contracts\Partner\PartnerDirectoryInterface;
 use Vivutio\Contracts\Shell\MenuSourceInterface;
 use Vivutio\Touring\Access\TouringConcerns;
 use Vivutio\Touring\Controller\SeasonController;
+use Vivutio\Touring\Controller\TourBookingController;
 use Vivutio\Touring\Controller\TourController;
+use Vivutio\Touring\Repository\TourBookingRepository;
 use Vivutio\Touring\Repository\TourDayRepository;
 use Vivutio\Touring\Repository\TourRateRepository;
 use Vivutio\Touring\Repository\TourRepository;
 use Vivutio\Touring\Repository\TourSeasonRepository;
 use Vivutio\Touring\Service\ParkFeeService;
+use Vivutio\Touring\Service\TourBookingService;
 use Vivutio\Touring\Service\TourPriceService;
 use Vivutio\Touring\Service\TourSeasonService;
 use Vivutio\Touring\Service\TourService;
@@ -56,6 +59,9 @@ return static function (ContainerConfigurator $container): void {
         ->args([service('doctrine')])
         ->tag('doctrine.repository_service');
     $services->set(TourRateRepository::class)
+        ->args([service('doctrine')])
+        ->tag('doctrine.repository_service');
+    $services->set(TourBookingRepository::class)
         ->args([service('doctrine')])
         ->tag('doctrine.repository_service');
 
@@ -95,4 +101,19 @@ return static function (ContainerConfigurator $container): void {
         ->args([service('twig'), service('touring.seasons'), service('security.csrf.token_manager'), service('router')])
         ->public();
     $services->alias(SeasonController::class, 'touring.controller.seasons')->public();
+
+    $services->set('touring.bookings', TourBookingService::class)
+        ->args([
+            service('doctrine.orm.entity_manager'),
+            service('clock'),
+            service(TourBookingRepository::class),
+            service(TourRepository::class),
+            service('touring.prices'),
+            service('touring.seasons'),
+            service(PartnerDirectoryInterface::class),
+        ]);
+    $services->set('touring.controller.bookings', TourBookingController::class)
+        ->args([service('twig'), service('touring.bookings'), service('touring.tours'), service('clock'), service('security.csrf.token_manager'), service('router')])
+        ->public();
+    $services->alias(TourBookingController::class, 'touring.controller.bookings')->public();
 };

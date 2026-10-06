@@ -1,0 +1,44 @@
+{# The tours sold, the soonest start first, as drawn (vivutio-designs
+   tours/bookings/index): filtered by where each stands, and, for whoever may
+   record one, a new booking. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@VivutioTouring/bookings/_macros.html.twig' as bookings_ %}
+
+{% block title %}Tour bookings{% endblock %}
+{% block here %}tour_bookings{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are">Tour bookings</nav><div class="title"><h1>Tour bookings</h1><span class="about">The tours sold, the soonest start first</span></div></div>
+    {% if door('tour_bookings.record') %}<div class="actions"><a class="button main" href="{{ path('touring_booking_new') }}">New booking</a></div>{% endif %}
+</header>
+
+<form class="tools" method="get" action="{{ path('touring_bookings') }}" data-tools>
+    <span data-facet="status">
+        <a class="chip" data-chip href="{{ path('touring_bookings') }}"{{ status is null ? ' aria-current="true"' }}>All <em>{{ total }}</em></a>
+        {% for option in statuses %}<a class="chip" data-chip href="{{ path('touring_bookings', {status: option.value}) }}"{{ status == option ? ' aria-current="true"' }}>{{ option.label }} <em>{{ counts[option.value] }}</em></a>{% endfor %}
+    </span>
+    <span class="shown" data-shown>showing <b>{{ bookings|length }}</b> of {{ total }}</span>
+</form>
+
+<section class="panel list">
+    <table class="table">
+        <thead><tr><th>Booking</th><th>Tour</th><th>When</th><th>Party</th><th style="width:130px">Status</th><th style="width:130px">Total</th><th style="width:90px"></th></tr></thead>
+        <tbody>
+        {% for booking in bookings %}
+            <tr data-booking="{{ booking.reference }}">
+                <td><div><b>{{ booking.reference }}</b><small>{{ booking.guest }}{% if partners[booking.uuid ~ ''] %} &middot; {{ partners[booking.uuid ~ ''] }}{% elseif booking.bookedBy %} &middot; {{ booking.bookedBy }}{% endif %}</small></div></td>
+                <td data-tour>{% if door('tours.read') %}<a href="{{ path('touring_tour', {uuid: booking.tour.uuid}) }}">{{ booking.tour.name }}</a>{% else %}{{ booking.tour.name }}{% endif %}</td>
+                <td data-when>{{ bookings_.when(booking, lengths[booking.uuid ~ '']) }}</td>
+                <td>{{ bookings_.party(booking) }} &middot; {{ booking.tierName }}</td>
+                <td data-status>{{ bookings_.status_chip(booking, today) }}</td>
+                <td data-total>{{ bookings_.money(booking.currency, booking.total) }}</td>
+                <td><a class="button outline" href="{{ path('touring_booking', {uuid: booking.uuid}) }}">Open</a></td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7"><div class="empty"><b>{{ total == 0 ? 'No tour bookings yet' : 'Nothing matches' }}</b><span>{{ total == 0 ? 'A tour sold is recorded with New booking, or from a party’s price on the tour.' : '' }}</span></div></td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endblock %}

@@ -25,6 +25,7 @@ use Vivutio\Contracts\Access\Verb;
 final readonly class TouringConcerns implements ConcernSourceInterface
 {
     public const string TOURS = 'tours';
+    public const string TOUR_BOOKINGS = 'tour_bookings';
 
     public function declaredBy(): string
     {
@@ -38,6 +39,15 @@ final readonly class TouringConcerns implements ConcernSourceInterface
             label: 'Tours',
             description: 'The tours sold, day by day, and what the parks charge a party on them: reading them, and writing them.',
             verbs: [Verb::Read, Verb::Manage],
+            scopes: [Scope::ORGANIZATION],
+            moduleSlug: 'touring',
+        );
+
+        yield new Concern(
+            key: self::TOUR_BOOKINGS,
+            label: 'Tour bookings',
+            description: 'The tours sold: reading the bookings, recording one, and confirming or cancelling it.',
+            verbs: [Verb::Read, Verb::Record, Verb::Manage],
             scopes: [Scope::ORGANIZATION],
             moduleSlug: 'touring',
         );

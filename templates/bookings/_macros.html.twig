@@ -1,0 +1,18 @@
+{# What a tour booking's facts read as, the same in the register and on its page. #}
+{% macro status_chip(booking, today) -%}
+    {%- if booking.isLapsed(today) -%}<span class="chip warn">Hold lapsed</span>
+    {%- elseif booking.status.value == 'provisional' -%}<span class="chip">Held to {{ booking.heldUntil|date('j M') }}</span>
+    {%- elseif booking.status.value == 'confirmed' -%}<span class="chip ok">Confirmed</span>
+    {%- else -%}<span class="chip">Cancelled</span>{%- endif -%}
+{%- endmacro %}
+
+{% macro party(booking) -%}
+    {{ booking.adults }} {{ booking.adults == 1 ? 'adult' : 'adults' }}{% if booking.children %}, {{ booking.children }} {{ booking.children == 1 ? 'child' : 'children' }}{% endif %}
+{%- endmacro %}
+
+{% macro when(booking, length) -%}
+    {%- set ends = booking.start|date_modify('+' ~ max(0, length - 1) ~ ' days') -%}
+    {{ booking.start|date(length > 1 ? 'j M' : 'j M Y') }}{% if length > 1 %} – {{ ends|date('j M Y') }}{% endif %} &middot; {{ length }} {{ length == 1 ? 'day' : 'days' }}
+{%- endmacro %}
+
+{% macro money(currency, cents) -%}{{ currency }} {{ (cents / 100)|number_format(2) }}{%- endmacro %}

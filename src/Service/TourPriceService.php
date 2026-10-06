@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Vivutio\Touring\Entity\Tour;
 use Vivutio\Touring\Entity\TourRate;
 use Vivutio\Touring\Exception\InvalidTourException;
+use Vivutio\Touring\Model\TourPrice;
 use Vivutio\Touring\Repository\TourRateRepository;
 
 /**
@@ -103,22 +104,20 @@ final readonly class TourPriceService
     /**
      * What a party pays: the tier's price for the season of its first day and
      * its size, a person and in all; or why it has none.
-     *
-     * @return array{priced: bool, says: string}
      */
-    public function quote(Tour $tour, \DateTimeImmutable $start, int $people, int $tier): array
+    public function quote(Tour $tour, \DateTimeImmutable $start, int $people, int $tier): TourPrice
     {
         $tiers = $tour->getTiers();
         $tierName = $tiers[$tier] ?? (0 === $tier ? 'The tour' : null);
         if ('' === $tour->getPriceCurrency() || null === $tierName) {
-            return ['priced' => false, 'says' => 'The tour has no prices yet.'];
+            return TourPrice::refused('The tour has no prices yet.');
         }
         if ($people < $tour->getGroupMin() || $people > $tour->getGroupMax()) {
-            return ['priced' => false, 'says' => \sprintf('The tour takes %d to %d people.', $tour->getGroupMin(), $tour->getGroupMax())];
+            return TourPrice::refused(\sprintf('The tour takes %d to %d people.', $tour->getGroupMin(), $tour->getGroupMax()));
         }
         $season = $this->seasons->seasonOn($start);
         if (null === $season) {
-            return ['priced' => false, 'says' => \sprintf('No tour season covers %s.', $start->format('j M Y'))];
+            return TourPrice::refused(\sprintf('No tour season covers %s.', $start->format('j M Y')));
         }
         $bracket = null;
         foreach ($tour->getBrackets() as $b) {
@@ -129,11 +128,18 @@ final readonly class TourPriceService
         $size = null === $bracket ? $people.' people' : self::size($bracket).' people';
         $rate = null === $bracket ? null : $this->rates->findOneBy(['tour' => $tour, 'season' => $season, 'tier' => $tier, 'minPeople' => $bracket[0]]);
         if (null === $rate) {
-            return ['priced' => false, 'says' => \sprintf('%s is not priced for %s in %s.', $tierName, $size, $season->getName())];
+            return TourPrice::refused(\sprintf('%s is not priced for %s in %s.', $tierName, $size, $season->getName()));
         }
-        $each = (float) $rate->getAmount();
+        $each = (int) round((float) $rate->getAmount() * 100);
+        $currency = $tour->getPriceCurrency();
 
-        return ['priced' => true, 'says' => \sprintf('%s · %s · %s: %s %s a person, %s %s for %d', $tierName, $season->getName(), $size, $tour->getPriceCurrency(), number_format($each, 2), $tour->getPriceCurrency(), number_format($each * $people, 2), $people)];
+        return new TourPrice(true, \sprintf('%s · %s · %s: %s a person, %s for %d', $tierName, $season->getName(), $size, self::money($currency, $each), self::money($currency, $each * $people), $people), $tierName, $season->getName(), $size, $currency, $each, $people);
+    }
+
+    /** "USD 2,173.88", an amount in cents of a currency. */
+    public static function money(string $currency, int $cents): string
+    {
+        return $currency.' '.number_format($cents / 100, 2);
     }
 
     /** "From USD 1,599.33", the least a person pays, or null when the tour has no prices. */

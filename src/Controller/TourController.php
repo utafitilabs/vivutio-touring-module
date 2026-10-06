@@ -32,6 +32,7 @@ use Vivutio\Touring\Enum\MealEnum;
 use Vivutio\Touring\Enum\TourStatusEnum;
 use Vivutio\Touring\Exception\InvalidTourException;
 use Vivutio\Touring\Model\FeeQuote;
+use Vivutio\Touring\Model\TourPrice;
 use Vivutio\Touring\Repository\TourRepository;
 use Vivutio\Touring\Service\ParkFeeService;
 use Vivutio\Touring\Service\TourPriceService;
@@ -420,10 +421,8 @@ final readonly class TourController
 
     /**
      * The tour's price for the party asked about, when a start day is asked.
-     *
-     * @return array{priced: bool, says: string}|null
      */
-    private function price(Tour $tour, Request $request): ?array
+    private function price(Tour $tour, Request $request): ?TourPrice
     {
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $request->query->getString('start'));
         $adults = $request->query->getString('adults');

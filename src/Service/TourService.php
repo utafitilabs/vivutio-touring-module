@@ -204,6 +204,37 @@ final readonly class TourService
         return ['labels' => $labels, 'days' => $first - 1, 'nights' => $nights];
     }
 
+    /**
+     * A tour's stays on a party's dates: each stay's days, its dates, its
+     * title, and where its nights are spent in the party's tier.
+     *
+     * @return list<array{label: string, dates: string, title: string, night: string}>
+     */
+    public function dated(Tour $tour, \DateTimeImmutable $start, int $tier): array
+    {
+        $labels = $this->schedule($tour)['labels'];
+        $dated = [];
+        $first = 0;
+        foreach ($tour->getDays() as $day) {
+            $from = $start->modify(\sprintf('+%d days', $first));
+            $to = $from->modify(\sprintf('+%d days', $day->getLength() - 1));
+            $first += $day->getLength();
+            $stay = $day->getStays()[$tier] ?? null;
+            $dated[] = [
+                'label' => $labels[$day->getNumber()],
+                'dates' => $from == $to ? $from->format('D j M') : $from->format($from->format('m') === $to->format('m') ? 'D j' : 'D j M').' – '.$to->format('D j M'),
+                'title' => $this->titleOf($day),
+                'night' => match (true) {
+                    0 === $day->getNights() => 'No night: the tour ends',
+                    null === $stay => 'Not set',
+                    default => $this->nameOf($stay),
+                },
+            ];
+        }
+
+        return $dated;
+    }
+
     /** What a stay is called: its title, or its route when it has none. */
     public function titleOf(TourDay $day): string
     {
@@ -231,11 +262,7 @@ final readonly class TourService
             if (null === $stay) {
                 continue;
             }
-            [$kind, $id] = array_pad(explode(':', $stay, 2), 2, '');
-            $name = self::PARTNER_KIND === $kind
-                ? ($this->partners->find($id)?->getName() ?? 'A partner no longer kept')
-                : ($this->places->nameOf($kind, $id) ?? 'A place no longer offered');
-            $named[$tiers[$i] ?? 'The night at'] = $name;
+            $named[$tiers[$i] ?? 'The night at'] = $this->nameOf($stay);
         }
 
         return $named;
@@ -391,6 +418,16 @@ final readonly class TourService
      *
      * @throws InvalidTourException
      */
+    /** The name of a place a night is spent at, kept as a kind and an id. */
+    private function nameOf(string $stay): string
+    {
+        [$kind, $id] = array_pad(explode(':', $stay, 2), 2, '');
+
+        return self::PARTNER_KIND === $kind
+            ? ($this->partners->find($id)?->getName() ?? 'A partner no longer kept')
+            : ($this->places->nameOf($kind, $id) ?? 'A place no longer offered');
+    }
+
     private function overnight(string $typed, string $field): string
     {
         [$kind, $id] = array_pad(explode(':', $typed, 2), 2, '');

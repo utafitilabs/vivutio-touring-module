@@ -1,0 +1,68 @@
+{# A tour booking's page, as drawn (vivutio-designs tours/bookings/booking):
+   the tour, when, the party and the total; the price as kept; the tour's days
+   on the party's dates; who it is for; and, for whoever may manage it,
+   confirming and cancelling. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/bookings/_macros.html.twig' as bookings_ %}
+
+{% block title %}{{ booking.reference }} · Tour bookings{% endblock %}
+{% block here %}tour_bookings{% endblock %}
+
+{% block page %}
+{%- set may = door('tour_bookings.manage') -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_bookings') }}">Tour bookings</a> / {{ booking.reference }}</nav><div class="title"><h1>{{ booking.reference }}</h1><span class="about" data-status>{{ bookings_.status_chip(booking, today) }}</span></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_bookings') }}">{{ icons.icon('left', 15) }} Back to the bookings</a></div>
+</header>
+
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Try again.</span></div>{% endif %}
+{% for said in wrong %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ said }}</span></div>{% endfor %}
+{% if booking.isLapsed(today) %}<div class="notice warn" role="status">{{ icons.icon('alert') }}<span>Its hold lapsed on {{ booking.heldUntil|date('j M Y') }}. It can still be confirmed.</span></div>{% endif %}
+
+<div class="band">
+    <span class="f"><span class="k">Tour</span><span class="v">{% if door('tours.read') %}<a href="{{ path('touring_tour', {uuid: booking.tour.uuid}) }}">{{ booking.tour.name }}</a>{% else %}{{ booking.tour.name }}{% endif %}</span></span>
+    <span class="f"><span class="k">When</span><span class="v" data-when>{{ length }} {{ length == 1 ? 'day' : 'days' }}<em>{{ booking.start|date(length > 1 ? 'j M' : 'j M Y') }}{% if length > 1 %} – {{ ends|date('j M Y') }}{% endif %}</em></span></span>
+    <span class="f"><span class="k">Party</span><span class="v">{{ booking.people }}<em>{{ bookings_.party(booking) }}{% if residency %} &middot; {{ residency.label|lower }}{% endif %}</em></span></span>
+    <span class="f"><span class="k">Total</span><span class="v" data-total>{{ bookings_.money(booking.currency, booking.total) }}</span></span>
+</div>
+
+<div class="columns">
+    <div class="stack">
+        <section class="panel" data-price>
+            <header class="panel-head"><h2>The price</h2><p>As priced when it was made</p></header>
+            <div class="fact"><span>{{ booking.tierName }} &middot; {{ booking.seasonName }}, the season of {{ booking.start|date('j M') }} &middot; {{ booking.size }}</span><b>{{ bookings_.money(booking.currency, booking.each) }} a person</b></div>
+            <div class="fact"><span>For {{ booking.people }}</span><b>{{ bookings_.money(booking.currency, booking.gross) }}</b></div>
+            {% if booking.total != booking.gross %}<div class="fact"><span>{{ partner ? partner.name : 'The partner' }}’s {{ share }}% off</span><b>– {{ bookings_.money(booking.currency, booking.gross - booking.total) }}</b></div>{% endif %}
+            <div class="fact"><span>Total</span><b>{{ bookings_.money(booking.currency, booking.total) }}</b></div>
+        </section>
+        <section class="panel">
+            <header class="panel-head"><h2>The days</h2><p>The tour’s days on this party’s dates, each night in {{ booking.tierName }}</p></header>
+            {% for day in days %}<div class="fact" data-day="{{ day.label }}"><span>{{ day.label }} &middot; {{ day.dates }} &middot; {{ day.title }}</span><b>{{ day.night }}</b></div>{% else %}<p class="hint">The tour has no days written.</p>{% endfor %}
+        </section>
+    </div>
+    <aside class="aside stack">
+        <section class="panel small">
+            <header class="panel-head"><h2>For</h2></header>
+            <div class="fact"><span>Guest</span><b data-guest>{{ booking.guest }}</b></div>
+            {% if booking.partnerId %}<div class="fact"><span>Partner</span><b data-partner>{{ partner ? partner.name : 'A partner no longer kept' }}{% if share != '0' %} &middot; {{ share }}% off {{ bookings_.money(booking.currency, booking.gross) }}{% endif %} &middot; {{ booking.creditDays > 0 ? booking.creditDays ~ ' days to pay' : 'pays on booking' }}</b></div>{% endif %}
+            <div class="fact"><span>Booked by</span><b>{{ booking.bookedBy ?? (booking.partnerId ? '—' : 'The guest directly') }}</b></div>
+            {% if booking.theirReference %}<div class="fact"><span>Their reference</span><b>{{ booking.theirReference }}</b></div>{% endif %}
+            {% if booking.notes %}<p class="hint">{{ booking.notes|nl2br }}</p>{% endif %}
+            {% if booking.cancelledAt %}<p class="hint" data-cancelled>Cancelled on {{ booking.cancelledAt|date('j M Y') }}: {{ booking.cancellationReason }}</p>{% endif %}
+        </section>
+        {% if may and booking.status.value != 'cancelled' %}
+        <section class="panel small" data-actions>
+            <header class="panel-head"><h2>Change it</h2></header>
+            {% if booking.status.value == 'provisional' %}
+                <form method="post" action="{{ path('touring_booking_confirm', {uuid: booking.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_booking_confirm') }}"><button type="submit" class="button main">Confirm the booking</button></form>
+            {% endif %}
+            <form method="post" action="{{ path('touring_booking_cancel', {uuid: booking.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_booking_cancel') }}">
+                <div class="field"><label for="cancel-reason">Why it is cancelled</label><input class="input" id="cancel-reason" name="reason" maxlength="200"></div>
+                <button type="submit" class="button danger">Cancel the booking</button>
+            </form>
+        </section>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}
