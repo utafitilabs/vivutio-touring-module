@@ -15,6 +15,7 @@ namespace Vivutio\Touring\Service;
 
 use Vivutio\Bundle\PlaceBundle\Entity\Destination;
 use Vivutio\Bundle\PlaceBundle\Entity\DestinationFee;
+use Vivutio\Bundle\PlaceBundle\Enum\DestinationKindEnum;
 use Vivutio\Bundle\PlaceBundle\Enum\FeePerEnum;
 use Vivutio\Bundle\PlaceBundle\Enum\GuestEnum;
 use Vivutio\Bundle\PlaceBundle\Enum\ResidencyEnum;
@@ -28,7 +29,8 @@ use Vivutio\Touring\Model\FeeQuote;
  * force each day in the core. A stay of three nights is three days at its
  * destinations, and each is charged once a day: a fee a person a day every day, a fee a person an entry and a vehicle
  * an entry on the first day of each visit, a visit being the days in a row a
- * tour is there. The party travels in one vehicle.
+ * tour is there. The party travels in one vehicle. A city charges no entry,
+ * so none is asked of it.
  */
 final readonly class ParkFeeService
 {
@@ -59,7 +61,9 @@ final readonly class ParkFeeService
                     $entering = !\in_array($key, $yesterday, true);
                     $forAdults = $this->fees->charged($destination, $date, GuestEnum::Adult, $residency);
                     if ([] === $forAdults) {
-                        $missing[] = \sprintf('No fee entered for %s on %s', $destination->getName(), $date->format('j M Y'));
+                        if (DestinationKindEnum::City !== $destination->getKind()) {
+                            $missing[] = \sprintf('No fee entered for %s on %s', $destination->getName(), $date->format('j M Y'));
+                        }
                         continue;
                     }
                     foreach ($forAdults as $fee) {

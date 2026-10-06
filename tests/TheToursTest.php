@@ -147,6 +147,7 @@ final class TheToursTest extends WebTestCase
             'days[1][nights]' => '2',
             'days[2][destinations][0]' => 'tz-ngorongoro-conservation-area',
             'days[3][destinations][0]' => 'tz-lake-manyara-national-park',
+            'days[3][destinations][1]' => 'tz-stone-town',
         ]);
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'?start=2026-11-01&adults=2&children=1&residency=non_resident');
