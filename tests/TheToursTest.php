@@ -53,7 +53,7 @@ final class TheToursTest extends WebTestCase
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
         $camp = $this->accommodationPartner();
-        $tour = $this->addTour('7 Days Safari Tanzania');
+        $tour = $this->addTour('Northern Circuit Safari');
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/configure');
         self::assertSame(['Details', 'Itinerary', 'Prices'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));

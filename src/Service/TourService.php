@@ -219,7 +219,7 @@ final readonly class TourService
     }
 
     /**
-     * Where each night of a stay is spent, by tier: "Silver" => "Ahadi Lodge".
+     * Where each night of a stay is spent, by tier: "Silver" => "Mwangaza Lodge".
      *
      * @return array<string, string>
      */
