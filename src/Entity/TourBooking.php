@@ -144,6 +144,10 @@ class TourBooking
     #[ORM\Column(type: Types::JSON)]
     private array $cancellationTiers = [];
 
+    /** @var list<array{at: string, by: string, said: string}> each change of its party or dates, the earliest first */
+    #[ORM\Column(type: Types::JSON)]
+    private array $changes = [];
+
     /** What cancelling it cost, in cents, once cancelled. */
     #[ORM\Column(nullable: true)]
     private ?int $cancellationCharge = null;
@@ -229,6 +233,28 @@ class TourBooking
     public function getStart(): \DateTimeImmutable
     {
         return $this->start;
+    }
+
+    public function setStart(\DateTimeImmutable $start): static
+    {
+        $this->start = $start;
+
+        return $this;
+    }
+
+    /**
+     * @return list<array{at: string, by: string, said: string}>
+     */
+    public function getChanges(): array
+    {
+        return $this->changes;
+    }
+
+    public function addChange(\DateTimeImmutable $at, string $by, string $said): static
+    {
+        $this->changes[] = ['at' => $at->format(\DATE_ATOM), 'by' => $by, 'said' => $said];
+
+        return $this;
     }
 
     public function getAdults(): int

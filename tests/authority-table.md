@@ -382,6 +382,34 @@ Checks: `tour_bookings.record`
 | Admin | allowed: New tour booking · vivutio |
 | Super Admin | allowed: New tour booking · vivutio |
 
+## touring_booking_change: GET /tours/bookings/0199b1c0-0000-7000-8000-00000000a004/change
+
+Checks: `tour_bookings.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Change PT-0001 · Tour bookings · vivutio |
+| Super Admin | allowed: Change PT-0001 · Tour bookings · vivutio |
+
+## touring_booking_change: POST /tours/bookings/0199b1c0-0000-7000-8000-00000000a004/change
+
+Checks: `tour_bookings.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Change PT-0001 · Tour bookings · vivutio |
+| Super Admin | allowed: Change PT-0001 · Tour bookings · vivutio |
+
 ## touring_booking_confirm: POST /tours/bookings/0199b1c0-0000-7000-8000-00000000a004/confirm
 
 Checks: `tour_bookings.manage`

@@ -166,46 +166,7 @@ final readonly class TourBookingService
     public function record(array $typed): TourBooking
     {
         $today = $this->clock->now()->setTime(0, 0);
-        $departure = null;
-        if ('' !== $typed['departure']) {
-            $departure = $this->departureOf($typed['departure']);
-            if (null === $departure || $departure->getStart() < $today || DepartureStatusEnum::Cancelled === $departure->getStatus()) {
-                throw new InvalidTourException('departure', 'Choose a departure still to leave.');
-            }
-            if (DepartureStatusEnum::Closed === $departure->getStatus()) {
-                throw new InvalidTourException('departure', 'Its sales are closed.');
-            }
-        }
-        $tour = $departure?->getTour() ?? $this->tourOf($typed['tour']) ?? throw new InvalidTourException('tour', 'Choose a tour on sale.');
-        $start = $departure?->getStart() ?? self::day($typed['start']);
-        if (null === $start || $start < $today) {
-            throw new InvalidTourException('start', 'The day the tour starts, today or later.');
-        }
-        if (!ctype_digit($typed['adults']) || !ctype_digit($typed['children']) || (int) $typed['adults'] < 1) {
-            throw new InvalidTourException('adults', 'At least one adult; children as a number, 0 for none.');
-        }
-        $adults = (int) $typed['adults'];
-        $children = (int) $typed['children'];
-        if (null !== $departure) {
-            $left = $departure->getSeats() - $this->seats->sold($departure);
-            if ($adults + $children > $left) {
-                throw new InvalidTourException('adults', \sprintf('The departure has %d %s left.', $left, 1 === $left ? 'seat' : 'seats'));
-            }
-        } elseif ($adults + $children < $tour->getGroupMin() || $adults + $children > $tour->getGroupMax()) {
-            throw new InvalidTourException('adults', \sprintf('The tour takes %d to %d people.', $tour->getGroupMin(), $tour->getGroupMax()));
-        }
-        $residency = ResidencyEnum::tryFrom($typed['residency']) ?? throw new InvalidTourException('residency', 'Choose the party’s residency.');
-        $tiers = max(1, \count($tour->getTiers()));
-        $tier = $departure?->getTier() ?? (ctype_digit($typed['tier']) ? (int) $typed['tier'] : -1);
-        if ($tier < 0 || $tier >= $tiers) {
-            throw new InvalidTourException('tier', 'Choose a tier the tour is sold in.');
-        }
-        $price = null === $departure ? $this->prices->quote($tour, $start, $adults + $children, $tier) : $this->seatPrice($departure, $adults + $children);
-        if (!$price->priced) {
-            throw new InvalidTourException(match (true) {
-                '' === $tour->getPriceCurrency() => 'tour', null === $this->seasons->seasonOn($start) => 'start', default => 'tier',
-            }, $price->says);
-        }
+        [$tour, $departure, $start, $adults, $children, $residency, $tier, $price] = $this->assess($typed, null);
 
         if ('' === $typed['guest'] || mb_strlen($typed['guest']) > TourBooking::GUEST_MAX_LENGTH) {
             throw new InvalidTourException('guest', 'Who it is for: the lead guest, or the party.');
@@ -296,6 +257,155 @@ final readonly class TourBookingService
     public static function discounted(int $gross, string $discount): int
     {
         return $gross - (int) round($gross * (float) $discount / 100);
+    }
+
+    /** Whether a booking may still be changed: not cancelled, and still to start. */
+    public function changeable(TourBooking $booking): bool
+    {
+        return TourBookingStatusEnum::Cancelled !== $booking->getStatus() && $booking->getStart() >= $this->clock->now()->setTime(0, 0);
+    }
+
+    /**
+     * A booking's party and dates as they stand, every field a string, for
+     * its change page.
+     *
+     * @return array<string, string>
+     */
+    public static function asTyped(TourBooking $booking): array
+    {
+        return [
+            ...self::typed([]),
+            'departure' => (string) $booking->getDeparture()?->getUuid(),
+            'start' => $booking->getStart()->format('Y-m-d'),
+            'adults' => (string) $booking->getAdults(),
+            'children' => (string) $booking->getChildren(),
+            'residency' => $booking->getResidency(),
+        ];
+    }
+
+    /**
+     * What a booking would be sold for with the party and dates typed, at the
+     * discount it was made with; null until they are typed.
+     *
+     * @param array<string, string> $typed
+     *
+     * @return array{price: TourPrice, after: ?string}|null
+     */
+    public function changedPrice(TourBooking $booking, array $typed): ?array
+    {
+        try {
+            [, , , , , , , $price] = $this->assess($typed, $booking);
+        } catch (InvalidTourException) {
+            return null;
+        }
+        $after = null;
+        if ((float) $booking->getDiscount() > 0) {
+            $after = \sprintf('%s’s %s%% off makes it %s.', $this->partnerOf($booking)?->getName() ?? 'The partner', self::share($booking->getDiscount()), TourPriceService::money($price->currency, self::discounted($price->gross(), $booking->getDiscount())));
+        }
+
+        return ['price' => $price, 'after' => $after];
+    }
+
+    /**
+     * A booking's party and dates changed: priced again by the tour's prices
+     * today, at the discount it was made with; its reference, tier and terms
+     * kept; the change kept on it, from and to, with who made it.
+     *
+     * @param array<string, string> $typed
+     *
+     * @throws InvalidTourException
+     */
+    public function change(TourBooking $booking, array $typed, string $by): void
+    {
+        if (!$this->changeable($booking)) {
+            throw new InvalidTourException('start', 'A booking cancelled or started is not changed.');
+        }
+        [, $departure, $start, $adults, $children, $residency, $tier, $price] = $this->assess($typed, $booking);
+        $gross = $price->gross();
+        $total = null === $booking->getPartnerId() ? $gross : self::discounted($gross, $booking->getDiscount());
+
+        $said = [];
+        if ($adults + $children !== $booking->getPeople()) {
+            $said[] = \sprintf('%d to %d %s', $booking->getPeople(), $adults + $children, 1 === $adults + $children ? 'person' : 'people');
+        }
+        if ($start != $booking->getStart()) {
+            $sameYear = $start->format('Y') === $booking->getStart()->format('Y');
+            $said[] = \sprintf('%s to %s', $booking->getStart()->format($sameYear ? 'j M' : 'j M Y'), $start->format('j M Y'));
+        }
+        if ($total !== $booking->getTotal()) {
+            $said[] = \sprintf('%s to %s', TourPriceService::money($booking->getCurrency(), $booking->getTotal()), TourPriceService::money($price->currency, $total));
+        }
+        if ([] === $said) {
+            return;
+        }
+
+        $booking->setStart($start)
+            ->setParty($adults, $children, $residency->value)
+            ->setPrice($tier, $price->tier, $price->season, $price->size, $price->currency, $price->each, $gross, $total)
+            ->setDeparture($departure)
+            ->addChange($this->clock->now(), $by, implode('; ', $said));
+        $this->entityManager->flush();
+    }
+
+    /**
+     * The tour, departure, day, party, residency and tier typed, checked, and
+     * their price. A booking being changed keeps its tour and tier, and its own
+     * seats count free on its departure.
+     *
+     * @param array<string, string> $typed
+     *
+     * @return array{Tour, ?TourDeparture, \DateTimeImmutable, int, int, ResidencyEnum, int, TourPrice}
+     *
+     * @throws InvalidTourException
+     */
+    private function assess(array $typed, ?TourBooking $own): array
+    {
+        $today = $this->clock->now()->setTime(0, 0);
+        $departure = null;
+        if ('' !== $typed['departure']) {
+            $departure = $this->departureOf($typed['departure']);
+            if (null === $departure || $departure->getStart() < $today || DepartureStatusEnum::Cancelled === $departure->getStatus()) {
+                throw new InvalidTourException('departure', 'Choose a departure still to leave.');
+            }
+            if (null !== $own && $departure->getTour() !== $own->getTour()) {
+                throw new InvalidTourException('departure', 'Choose a departure of the same tour.');
+            }
+            if (DepartureStatusEnum::Closed === $departure->getStatus() && $departure !== $own?->getDeparture()) {
+                throw new InvalidTourException('departure', 'Its sales are closed.');
+            }
+        }
+        $tour = $departure?->getTour() ?? $own?->getTour() ?? $this->tourOf($typed['tour']) ?? throw new InvalidTourException('tour', 'Choose a tour on sale.');
+        $start = $departure?->getStart() ?? self::day($typed['start']);
+        if (null === $start || $start < $today) {
+            throw new InvalidTourException('start', 'The day the tour starts, today or later.');
+        }
+        if (!ctype_digit($typed['adults']) || !ctype_digit($typed['children']) || (int) $typed['adults'] < 1) {
+            throw new InvalidTourException('adults', 'At least one adult; children as a number, 0 for none.');
+        }
+        $adults = (int) $typed['adults'];
+        $children = (int) $typed['children'];
+        if (null !== $departure) {
+            $left = $departure->getSeats() - $this->seats->sold($departure) + ($departure === $own?->getDeparture() ? $own->getPeople() : 0);
+            if ($adults + $children > $left) {
+                throw new InvalidTourException('adults', \sprintf('The departure has %d %s left.', $left, 1 === $left ? 'seat' : 'seats'));
+            }
+        } elseif ($adults + $children < $tour->getGroupMin() || $adults + $children > $tour->getGroupMax()) {
+            throw new InvalidTourException('adults', \sprintf('The tour takes %d to %d people.', $tour->getGroupMin(), $tour->getGroupMax()));
+        }
+        $residency = ResidencyEnum::tryFrom($typed['residency']) ?? throw new InvalidTourException('residency', 'Choose the party’s residency.');
+        $tiers = max(1, \count($tour->getTiers()));
+        $tier = $departure?->getTier() ?? $own?->getTier() ?? (ctype_digit($typed['tier']) ? (int) $typed['tier'] : -1);
+        if ($tier < 0 || $tier >= $tiers) {
+            throw new InvalidTourException('tier', 'Choose a tier the tour is sold in.');
+        }
+        $price = null === $departure ? $this->prices->quote($tour, $start, $adults + $children, $tier) : $this->seatPrice($departure, $adults + $children);
+        if (!$price->priced) {
+            throw new InvalidTourException(match (true) {
+                '' === $tour->getPriceCurrency() => 'tour', null === $this->seasons->seasonOn($start) => 'start', default => null === $own ? 'tier' : 'start',
+            }, $price->says);
+        }
+
+        return [$tour, $departure, $start, $adults, $children, $residency, $tier, $price];
     }
 
     /**

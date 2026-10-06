@@ -1,0 +1,35 @@
+{# A booking's party and dates changed, as drawn (vivutio-designs
+   tours/bookings/change): the day it starts and the party, or on a departure
+   which departure and the seats; priced again before it is saved. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+{% import '@VivutioTouring/bookings/_macros.html.twig' as bookings_ %}
+
+{% block title %}Change {{ booking.reference }} · Tour bookings{% endblock %}
+{% block here %}tour_bookings{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_bookings') }}">Tour bookings</a> / <a href="{{ path('touring_booking', {uuid: booking.uuid}) }}">{{ booking.reference }}</a> / Change</nav><div class="title"><h1>Change {{ booking.reference }}</h1><span class="about">{{ booking.tour.name }} &middot; {{ booking.tierName }} &middot; {{ booking.guest }}</span></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_booking', {uuid: booking.uuid}) }}">{{ icons.icon('left', 15) }} Back to the booking</a></div>
+</header>
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Try again.</span></div>{% endif %}
+
+<form class="panel" method="post" action="{{ path('touring_booking_change', {uuid: booking.uuid}) }}" novalidate>
+    <header class="panel-head"><h2>The party and the dates</h2><p>Priced again by the tour’s prices today, at the terms it was made with</p></header>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_booking_change') }}">
+    <div class="grid-3">
+        {% if booking.departure %}
+            <div class="field{{ wrong.departure is defined ? ' wrong' }}"><label for="change-departure">Departure</label><select class="select" id="change-departure" name="departure">{% for row in departures %}<option value="{{ row.departure.uuid }}"{{ (row.departure.uuid ~ '') == typed.departure ? ' selected' }}>{{ row.departure.start|date('D j M Y') }} · {{ row.left }} left</option>{% endfor %}</select>{{ tours_.hint('departure', wrong, null) }}</div>
+        {% else %}
+            <div class="field{{ wrong.start is defined ? ' wrong' }}"><label for="change-start">Starting</label><input class="input" id="change-start" name="start" type="date" value="{{ typed.start }}" min="{{ today|date('Y-m-d') }}">{{ tours_.hint('start', wrong, null) }}</div>
+        {% endif %}
+        <div class="field{{ wrong.adults is defined ? ' wrong' }}"><label for="change-adults">Adults</label><input class="input" id="change-adults" name="adults" value="{{ typed.adults }}" inputmode="numeric">{{ tours_.hint('adults', wrong, null) }}</div>
+        <div class="field{{ wrong.children is defined ? ' wrong' }}"><label for="change-children">Children</label><input class="input" id="change-children" name="children" value="{{ typed.children }}" inputmode="numeric">{{ tours_.hint('children', wrong, null) }}</div>
+    </div>
+    <div class="fact" data-now><span>Now</span><b>{{ booking.people }} &middot; {{ booking.start|date('j M Y') }} &middot; {{ bookings_.money(booking.currency, booking.total) }}</b></div>
+    {% if quoted %}<div class="notice" role="status" data-price><span><b>{{ quoted.price.says }}</b>{% if quoted.after %}; {{ quoted.after }}{% endif %}</span></div>{% endif %}
+    <footer class="panel-foot"><span class="state">The reference, the tier and the cancellation terms stay as they were</span><button type="submit" name="step" value="price" class="button outline">Price it again</button><button type="submit" class="button main">Save the change</button></footer>
+</form>
+{% endblock %}

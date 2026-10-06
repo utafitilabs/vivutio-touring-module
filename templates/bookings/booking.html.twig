@@ -1,6 +1,7 @@
 {# A tour booking's page, as drawn (vivutio-designs tours/bookings/booking):
    the tour, when, the party and the total; the price as kept; the tour's days
-   on the party's dates; who it is for; and, for whoever may manage it,
+   on the party's dates; who it is for; each change of its party or dates;
+   and, for whoever may manage it, changing it,
    confirming and cancelling. #}
 {% extends '@Shell/page.html.twig' %}
 {% import '@Shell/_icons.html.twig' as icons %}
@@ -56,9 +57,16 @@
             {% if booking.cancelledAt %}<p class="hint" data-cancelled>Cancelled on {{ booking.cancelledAt|date('j M Y') }}, {{ cancelled_when }}, {{ booking.cancellationCharge ? 'for ' ~ bookings_.money(booking.currency, booking.cancellationCharge) : 'free' }}: {{ booking.cancellationReason }}</p>
             {% else %}<p class="hint" data-charge-today>{{ charge_today }}</p>{% endif %}
         </section>
+        {% if booking.changes %}
+        <section class="panel small">
+            <header class="panel-head"><h2>Changes</h2><p>What was changed, and by whom</p></header>
+            {% for change in booking.changes %}<div class="fact" data-change><span>{{ change.at|date('j M Y') }} &middot; {{ change.by }}</span><b>{{ change.said }}</b></div>{% endfor %}
+        </section>
+        {% endif %}
         {% if may and booking.status.value != 'cancelled' %}
         <section class="panel small" data-actions>
             <header class="panel-head"><h2>Change it</h2></header>
+            {% if changeable %}<a class="button outline" href="{{ path('touring_booking_change', {uuid: booking.uuid}) }}">Change the party or dates</a>{% endif %}
             {% if booking.status.value == 'provisional' %}
                 <form method="post" action="{{ path('touring_booking_confirm', {uuid: booking.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_booking_confirm') }}"><button type="submit" class="button main">Confirm the booking</button></form>
             {% endif %}

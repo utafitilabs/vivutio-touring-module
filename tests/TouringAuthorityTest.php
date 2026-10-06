@@ -87,6 +87,8 @@ final class TouringAuthorityTest extends AuthorityTestCase
             new Probe(TourBookingController::BOOKING, 'GET', self::BOOKING),
             new Probe(TourBookingController::NEW, 'GET', '/tours/bookings/new'),
             new Probe(TourBookingController::NEW, 'POST', '/tours/bookings/new', ['step' => 'price'], formAt: '/tours/bookings/new'),
+            new Probe(TourBookingController::CHANGE, 'GET', self::BOOKING.'/change'),
+            new Probe(TourBookingController::CHANGE, 'POST', self::BOOKING.'/change', ['step' => 'price', 'adults' => '3'], formAt: self::BOOKING.'/change'),
             // Confirmed by the first allowed; the next finds it confirmed already.
             new Probe(TourBookingController::CONFIRM, 'POST', self::BOOKING.'/confirm', formAt: self::BOOKING),
             // Cancelled by the first allowed; the next finds it cancelled already.

@@ -18,13 +18,16 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Twig\Environment;
+use Vivutio\Bundle\IdentityBundle\Entity\User;
 use Vivutio\Bundle\PlaceBundle\Enum\ResidencyEnum;
 use Vivutio\Touring\Entity\TourBooking;
 use Vivutio\Touring\Enum\TourBookingStatusEnum;
@@ -47,6 +50,7 @@ final readonly class TourBookingController
     public const string BOOKING = 'touring_booking';
     public const string CONFIRM = 'touring_booking_confirm';
     public const string CANCEL = 'touring_booking_cancel';
+    public const string CHANGE = 'touring_booking_change';
 
     public const string READ = 'tour_bookings.read';
     public const string RECORD = 'tour_bookings.record';
@@ -121,6 +125,39 @@ final readonly class TourBookingController
         TourBooking $booking,
     ): Response {
         return $this->bookingPage($booking);
+    }
+
+    #[Route('/tours/bookings/{uuid}/change', name: self::CHANGE, requirements: ['uuid' => Requirement::UUID], methods: ['GET', 'POST'])]
+    #[IsGranted(self::MANAGE)]
+    public function change(
+        Request $request,
+        #[MapEntity(mapping: ['uuid' => 'uuid'])]
+        TourBooking $booking,
+        #[CurrentUser]
+        User $user,
+    ): Response {
+        if (!$this->bookings->changeable($booking)) {
+            throw new NotFoundHttpException('No booking still to change has this id.');
+        }
+        if (!$request->isMethod('POST')) {
+            return $this->changePage($booking, TourBookingService::asTyped($booking));
+        }
+        $sent = $request->getPayload()->all();
+        $typed = [...TourBookingService::asTyped($booking), ...array_filter(TourBookingService::typed($sent), static fn (string $value, string $key): bool => \in_array($key, ['departure', 'start', 'adults', 'children', 'residency'], true) && \array_key_exists($key, $sent), \ARRAY_FILTER_USE_BOTH)];
+        if (!$this->tokens->isTokenValid(new CsrfToken('touring_booking_change', \is_string($sent['_token'] ?? null) ? $sent['_token'] : ''))) {
+            return $this->changePage($booking, $typed, expired: true);
+        }
+        if ('price' === ($sent['step'] ?? null)) {
+            return $this->changePage($booking, $typed);
+        }
+
+        try {
+            $this->bookings->change($booking, $typed, $user->getFullName());
+        } catch (InvalidTourException $refusal) {
+            return $this->changePage($booking, $typed, [$refusal->field => $refusal->getMessage()]);
+        }
+
+        return new RedirectResponse($this->urls->generate(self::BOOKING, ['uuid' => $booking->getUuid()]));
     }
 
     #[Route('/tours/bookings/{uuid}/confirm', name: self::CONFIRM, requirements: ['uuid' => Requirement::UUID], methods: ['POST'])]
@@ -200,6 +237,32 @@ final readonly class TourBookingController
     }
 
     /**
+     * @param array<string, string> $typed
+     * @param array<string, string> $wrong
+     */
+    private function changePage(TourBooking $booking, array $typed, array $wrong = [], bool $expired = false): Response
+    {
+        $departures = [];
+        if (null !== $booking->getDeparture()) {
+            foreach ($this->bookings->departuresOf($booking->getTour()) as $other) {
+                $own = $other === $booking->getDeparture() ? $booking->getPeople() : 0;
+                $departures[] = ['departure' => $other, 'left' => $other->getSeats() - $this->departures->sold($other) + $own];
+            }
+        }
+
+        return new Response($this->twig->render('@VivutioTouring/bookings/change.html.twig', [
+            'booking' => $booking,
+            'typed' => $typed,
+            'departures' => $departures,
+            'residencies' => ResidencyEnum::cases(),
+            'quoted' => $this->bookings->changedPrice($booking, $typed),
+            'today' => $this->clock->now(),
+            'wrong' => $wrong,
+            'expired' => $expired,
+        ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    /**
      * @param array<string, string> $wrong
      */
     private function bookingPage(TourBooking $booking, array $wrong = [], bool $expired = false): Response
@@ -215,6 +278,7 @@ final readonly class TourBookingController
             'ends' => $booking->getStart()->modify(\sprintf('+%d days', max(0, $length - 1))),
             'residency' => ResidencyEnum::tryFrom($booking->getResidency()),
             'bands' => TourCancellationService::bands($booking->getCancellationTiers()),
+            'changeable' => $this->bookings->changeable($booking),
             'charge_today' => TourCancellationService::today($booking, $this->clock->now()),
             'cancelled_when' => null === $booking->getCancelledAt() ? null : TourCancellationService::when(TourCancellationService::charge($booking, $booking->getCancelledAt())['days']),
             'today' => $this->clock->now(),
