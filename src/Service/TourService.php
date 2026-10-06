@@ -26,16 +26,19 @@ use Vivutio\Touring\Exception\InvalidTourException;
 use Vivutio\Touring\Repository\TourRepository;
 
 /**
- * Tours and their days. A day goes to destinations the core knows, and its
- * night is spent at a place a package offers (an office is not somewhere
- * guests sleep) or at an accommodation partner the organization trades with
- * now. A tour opens for sale with at least one day.
+ * Tours and their itineraries. A tour is sold in up to four lodging tiers; its
+ * stays go to destinations the core knows, last a number of nights, and spend
+ * each night, in each tier, at a place a package offers (an office is not
+ * somewhere guests sleep) or at an accommodation partner traded with now. The
+ * itinerary is edited as a whole and saved at once. A tour opens for sale with
+ * at least one stay.
  */
 final readonly class TourService
 {
     public const string PARTNER_KIND = 'partner';
     public const int GROUP_MAX = 60;
     public const int LONGEST_DRIVE = 16;
+    public const int MOST_TIERS = 4;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -103,43 +106,139 @@ final readonly class TourService
     }
 
     /**
-     * @param array<mixed> $sent the day's form
+     * The itinerary as typed on its page, every stay validated before
+     * anything is kept, then the step asked for: "save", "add", or "up",
+     * "down", "duplicate", "insert" or "remove" with a stay's position,
+     * "up:2". Returns the position of the stay the step reached, to open.
+     *
+     * @param array<mixed> $sent the page's form
      *
      * @throws InvalidTourException
      */
-    public function addDay(Tour $tour, array $sent): TourDay
+    public function saveItinerary(Tour $tour, array $sent, string $step): ?int
     {
-        $day = new TourDay($tour, $tour->getDays()->count() + 1);
-        $this->write($day, $sent);
-        $tour->getDays()->add($day);
-        $this->entityManager->persist($day);
+        $tiers = $this->tiers(\is_string($sent['tiers'] ?? null) ? $sent['tiers'] : '');
+        $typed = \is_array($sent['days'] ?? null) ? array_values($sent['days']) : [];
+        $drafts = [];
+        foreach ($typed as $i => $day) {
+            $drafts[] = $this->draft(\is_array($day) ? $day : [], $i, \count($tiers));
+        }
+
+        [$verb, $at] = array_pad(explode(':', $step, 2), 2, '');
+        $at = ctype_digit($at) && (int) $at < \count($drafts) ? (int) $at : null;
+        $blank = ['title' => '', 'destinations' => [], 'stays' => [], 'nights' => 1, 'meals' => [], 'activities' => '', 'description' => '', 'distance' => null, 'hours' => null];
+        $open = null;
+        switch (true) {
+            case 'add' === $verb:
+                $drafts[] = $blank;
+                $open = \count($drafts) - 1;
+                break;
+            case 'up' === $verb && null !== $at && $at > 0:
+                [$drafts[$at - 1], $drafts[$at]] = [$drafts[$at], $drafts[$at - 1]];
+                $open = $at - 1;
+                break;
+            case 'down' === $verb && null !== $at && $at < \count($drafts) - 1:
+                [$drafts[$at + 1], $drafts[$at]] = [$drafts[$at], $drafts[$at + 1]];
+                $open = $at + 1;
+                break;
+            case 'duplicate' === $verb && null !== $at:
+                array_splice($drafts, $at + 1, 0, [$drafts[$at]]);
+                $open = $at + 1;
+                break;
+            case 'insert' === $verb && null !== $at:
+                array_splice($drafts, $at + 1, 0, [$blank]);
+                $open = $at + 1;
+                break;
+            case 'remove' === $verb && null !== $at:
+                array_splice($drafts, $at, 1);
+                $open = [] === $drafts ? null : max(0, $at - 1);
+                break;
+        }
+
+        $tour->setTiers($tiers);
+        $days = array_values($tour->getDays()->toArray());
+        foreach ($drafts as $i => $draft) {
+            $day = $days[$i] ?? null;
+            if (null === $day) {
+                $day = new TourDay($tour, $i + 1);
+                $tour->getDays()->add($day);
+                $this->entityManager->persist($day);
+            }
+            $day->setNumber($i + 1)
+                ->setTitle($draft['title'])
+                ->setDestinations($draft['destinations'])
+                ->setStays($draft['stays'])
+                ->setNights($draft['nights'])
+                ->setMeals($draft['meals'])
+                ->setActivities($draft['activities'])
+                ->setDescription($draft['description'])
+                ->setDrive($draft['distance'], $draft['hours']);
+        }
+        foreach (\array_slice($days, \count($drafts)) as $gone) {
+            $tour->getDays()->removeElement($gone);
+            $this->entityManager->remove($gone);
+        }
         $this->entityManager->flush();
 
-        return $day;
+        return $open;
     }
 
     /**
-     * @param array<mixed> $sent the day's form
+     * Each stay's label and where it starts: "Day 1", "Days 2–3", and the
+     * tour's length in days and nights.
      *
-     * @throws InvalidTourException
+     * @return array{labels: array<int, string>, days: int, nights: int}
      */
-    public function changeDay(TourDay $day, array $sent): void
+    public function schedule(Tour $tour): array
     {
-        $this->write($day, $sent);
-        $this->entityManager->flush();
+        $labels = [];
+        $first = 1;
+        $nights = 0;
+        foreach ($tour->getDays() as $day) {
+            $last = $first + $day->getLength() - 1;
+            $labels[$day->getNumber()] = $first === $last ? 'Day '.$first : \sprintf('Days %d–%d', $first, $last);
+            $first = $last + 1;
+            $nights += $day->getNights();
+        }
+
+        return ['labels' => $labels, 'days' => $first - 1, 'nights' => $nights];
     }
 
-    /** The day goes, and the days after it move up one. */
-    public function removeDay(TourDay $day): void
+    /** What a stay is called: its title, or its route when it has none. */
+    public function titleOf(TourDay $day): string
     {
-        $tour = $day->getTour();
-        $tour->getDays()->removeElement($day);
-        $this->entityManager->remove($day);
-        $number = 1;
-        foreach ($tour->getDays() as $other) {
-            $other->setNumber($number++);
+        if ('' !== $day->getTitle()) {
+            return $day->getTitle();
         }
-        $this->entityManager->flush();
+        $names = [];
+        foreach ($day->getDestinations() as $key) {
+            $names[] = $this->destinations->findOneBy(['key' => $key])?->getName() ?? $key;
+        }
+
+        return [] === $names ? 'A day not yet written' : implode(' → ', $names);
+    }
+
+    /**
+     * Where each night of a stay is spent, by tier: "Silver" => "Ahadi Lodge".
+     *
+     * @return array<string, string>
+     */
+    public function staysOf(TourDay $day): array
+    {
+        $tiers = $day->getTour()->getTiers();
+        $named = [];
+        foreach ($day->getStays() as $i => $stay) {
+            if (null === $stay) {
+                continue;
+            }
+            [$kind, $id] = array_pad(explode(':', $stay, 2), 2, '');
+            $name = self::PARTNER_KIND === $kind
+                ? ($this->partners->find($id)?->getName() ?? 'A partner no longer kept')
+                : ($this->places->nameOf($kind, $id) ?? 'A place no longer offered');
+            $named[$tiers[$i] ?? 'The night at'] = $name;
+        }
+
+        return $named;
     }
 
     /**
@@ -176,104 +275,135 @@ final readonly class TourService
         return $groups;
     }
 
-    /** The name of where a day's night is spent, or null when it is not set. */
-    public function overnightName(TourDay $day): ?string
-    {
-        $kind = $day->getOvernightKind();
-        $id = $day->getOvernightId();
-        if (null === $kind || null === $id) {
-            return null;
-        }
-        if (self::PARTNER_KIND === $kind) {
-            return $this->partners->find($id)?->getName() ?? 'A partner no longer kept';
-        }
-
-        return $this->places->nameOf($kind, $id) ?? 'A place no longer offered';
-    }
-
     /**
-     * @param array<mixed> $sent
+     * One stay as typed, checked field by field; a refusal names the field
+     * as the form does, "days[2][nights]".
+     *
+     * @param array<mixed> $day
+     *
+     * @return array{title: string, destinations: list<string>, stays: list<string|null>, nights: int, meals: list<string>, activities: string, description: string, distance: ?int, hours: ?string}
      *
      * @throws InvalidTourException
      */
-    private function write(TourDay $day, array $sent): void
+    private function draft(array $day, int $i, int $tierCount): array
     {
-        $text = static fn (string $key): string => \is_string($sent[$key] ?? null) ? trim($sent[$key]) : '';
+        $field = static fn (string $name): string => \sprintf('days[%d][%s]', $i, $name);
+        $text = static fn (string $key): string => \is_string($day[$key] ?? null) ? trim($day[$key]) : '';
 
         $title = $text('title');
-        if ('' === $title) {
-            throw new InvalidTourException('title', 'A day is known by what it is called: Arusha to Tarangire.');
-        }
         if (mb_strlen($title) > TourDay::TITLE_MAX_LENGTH) {
-            throw new InvalidTourException('title', \sprintf('A title can be at most %d characters.', TourDay::TITLE_MAX_LENGTH));
+            throw new InvalidTourException($field('title'), \sprintf('A title can be at most %d characters.', TourDay::TITLE_MAX_LENGTH));
         }
 
         $keys = [];
-        $typed = \is_array($sent['destinations'] ?? null) ? $sent['destinations'] : [];
-        for ($i = 0; $i < TourDay::MOST_DESTINATIONS; ++$i) {
-            $key = \is_string($typed[$i] ?? null) ? trim($typed[$i]) : '';
+        $typed = \is_array($day['destinations'] ?? null) ? $day['destinations'] : [];
+        for ($d = 0; $d < TourDay::MOST_DESTINATIONS; ++$d) {
+            $key = \is_string($typed[$d] ?? null) ? trim($typed[$d]) : '';
             if ('' === $key || \in_array($key, $keys, true)) {
                 continue;
             }
             if (null === $this->destinations->findOneBy(['key' => $key])) {
-                throw new InvalidTourException(\sprintf('destinations[%d]', $i), 'Choose a destination from the list.');
+                throw new InvalidTourException($field('destinations').'['.$d.']', 'Choose a destination from the list.');
             }
             $keys[] = $key;
         }
 
-        [$kind, $id] = $this->overnight($text('overnight'));
+        $nights = '' === $text('nights') ? '1' : $text('nights');
+        if (!ctype_digit($nights) || (int) $nights > 30) {
+            throw new InvalidTourException($field('nights'), 'A stay is from 0 nights, a last day, to 30.');
+        }
+
+        $stays = [];
+        $typedStays = \is_array($day['stays'] ?? null) ? $day['stays'] : [];
+        for ($t = 0; $t < max(1, $tierCount); ++$t) {
+            $stay = \is_string($typedStays[$t] ?? null) ? trim($typedStays[$t]) : '';
+            $stays[] = '' === $stay ? null : $this->overnight($stay, $field('stays').'['.$t.']');
+        }
 
         $meals = [];
-        $ticked = \is_array($sent['meals'] ?? null) ? $sent['meals'] : [];
+        $ticked = \is_array($day['meals'] ?? null) ? $day['meals'] : [];
         foreach (MealEnum::cases() as $meal) {
             if (isset($ticked[$meal->value])) {
                 $meals[] = $meal->value;
             }
         }
 
+        $activities = $text('activities');
+        if (mb_strlen($activities) > TourDay::ACTIVITIES_MAX_LENGTH) {
+            throw new InvalidTourException($field('activities'), \sprintf('Activities can be at most %d characters.', TourDay::ACTIVITIES_MAX_LENGTH));
+        }
         $description = $text('description');
         if (mb_strlen($description) > TourDay::DESCRIPTION_MAX_LENGTH) {
-            throw new InvalidTourException('description', \sprintf('A description can be at most %d characters.', TourDay::DESCRIPTION_MAX_LENGTH));
+            throw new InvalidTourException($field('description'), \sprintf('A description can be at most %d characters.', TourDay::DESCRIPTION_MAX_LENGTH));
         }
-
         $distance = $text('distance_km');
         if ('' !== $distance && (!ctype_digit($distance) || (int) $distance > 2000)) {
-            throw new InvalidTourException('distance_km', 'A distance is whole kilometres, up to 2,000.');
+            throw new InvalidTourException($field('distance_km'), 'A distance is whole kilometres, up to 2,000.');
         }
         $hours = $text('drive_hours');
         if ('' !== $hours && (1 !== preg_match('{^\d{1,2}(\.\d)?$}D', $hours) || (float) $hours > self::LONGEST_DRIVE)) {
-            throw new InvalidTourException('drive_hours', \sprintf('A drive is hours to the tenth, up to %d: 2.5.', self::LONGEST_DRIVE));
+            throw new InvalidTourException($field('drive_hours'), \sprintf('A drive is hours to the tenth, up to %d: 2.5.', self::LONGEST_DRIVE));
         }
 
-        $day->setTitle($title)
-            ->setDestinations($keys)
-            ->setOvernight($kind, $id)
-            ->setMeals($meals)
-            ->setDescription($description)
-            ->setDrive('' === $distance ? null : (int) $distance, '' === $hours ? null : number_format((float) $hours, 1, '.', ''));
+        return [
+            'title' => $title,
+            'destinations' => $keys,
+            'stays' => $stays,
+            'nights' => (int) $nights,
+            'meals' => $meals,
+            'activities' => $activities,
+            'description' => $description,
+            'distance' => '' === $distance ? null : (int) $distance,
+            'hours' => '' === $hours ? null : number_format((float) $hours, 1, '.', ''),
+        ];
     }
 
     /**
-     * @return array{?string, ?string}
+     * The tiers as typed, "Silver, Gold, Platinum": each named once.
+     *
+     * @return list<string>
      *
      * @throws InvalidTourException
      */
-    private function overnight(string $typed): array
+    private function tiers(string $typed): array
     {
-        if ('' === $typed) {
-            return [null, null];
+        $tiers = [];
+        foreach (explode(',', $typed) as $tier) {
+            $tier = trim($tier);
+            if ('' === $tier) {
+                continue;
+            }
+            if (mb_strlen($tier) > 40 || \in_array(mb_strtolower($tier), array_map(mb_strtolower(...), $tiers), true)) {
+                throw new InvalidTourException('tiers', 'Name each tier once, cheapest first: Silver, Gold, Platinum.');
+            }
+            $tiers[] = $tier;
         }
+        if (\count($tiers) > self::MOST_TIERS) {
+            throw new InvalidTourException('tiers', \sprintf('A tour is sold in at most %d tiers.', self::MOST_TIERS));
+        }
+
+        return $tiers;
+    }
+
+    /**
+     * A place a package offers but an office, or an accommodation partner
+     * traded with now, as kind:id.
+     *
+     * @throws InvalidTourException
+     */
+    private function overnight(string $typed, string $field): string
+    {
         [$kind, $id] = array_pad(explode(':', $typed, 2), 2, '');
         if (self::PARTNER_KIND === $kind) {
             $partner = $this->partners->find($id);
             if (null !== $partner && $partner->isActive() && 'accommodation' === $partner->getPartnerKind()) {
-                return [$kind, $partner->getPartnerId()];
+                return $kind.':'.$partner->getPartnerId();
             }
         } elseif (Office::PLACE_KIND !== $kind && null !== ($place = $this->places->find($kind, $id))) {
-            return [$place->getPlaceKind(), $place->getPlaceId()];
+            return $place->getPlaceKind().':'.$place->getPlaceId();
         }
 
-        throw new InvalidTourException('overnight', 'Choose where the night is spent from the list, or leave it not set.');
+        throw new InvalidTourException($field, 'Choose where the night is spent from the list, or leave it not set.');
     }
 
     /**

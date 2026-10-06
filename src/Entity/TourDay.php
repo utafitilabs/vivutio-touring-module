@@ -19,10 +19,12 @@ use Symfony\Component\Uid\Uuid;
 use Vivutio\Touring\Repository\TourDayRepository;
 
 /**
- * A day of a tour: its number, what it is called, the destinations it goes
- * to by the keys the core knows them by, where its night is spent (a place a
- * package offers, or an accommodation partner, by kind and id), the meals it
- * includes, what happens, how far it drives and for how long.
+ * A stay of a tour: its place in the itinerary, what it is called, its route
+ * through the destinations by the keys the core knows them by, how many
+ * nights it lasts (none for a last day), where each night is spent in each of
+ * the tour's tiers (a place a package offers, or an accommodation partner, as
+ * kind:id), the meals and activities it includes, what happens, how far it
+ * drives and for how long.
  *
  * It holds state and nothing else.
  */
@@ -33,6 +35,7 @@ class TourDay
     public const int TITLE_MAX_LENGTH = 120;
     public const int DESCRIPTION_MAX_LENGTH = 4000;
     public const int MOST_DESTINATIONS = 3;
+    public const int ACTIVITIES_MAX_LENGTH = 240;
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -56,11 +59,15 @@ class TourDay
     #[ORM\Column(type: Types::JSON)]
     private array $destinations = [];
 
-    #[ORM\Column(length: 32, nullable: true)]
-    private ?string $overnightKind = null;
+    #[ORM\Column]
+    private int $nights = 1;
 
-    #[ORM\Column(length: 36, nullable: true)]
-    private ?string $overnightId = null;
+    /** @var list<string|null> where each night is spent, a place or partner as kind:id, one a tier in the tour's order */
+    #[ORM\Column(type: Types::JSON)]
+    private array $stays = [];
+
+    #[ORM\Column(length: self::ACTIVITIES_MAX_LENGTH)]
+    private string $activities = '';
 
     /** @var list<string> */
     #[ORM\Column(type: Types::JSON)]
@@ -146,20 +153,50 @@ class TourDay
         return $this;
     }
 
-    public function getOvernightKind(): ?string
+    public function getNights(): int
     {
-        return $this->overnightKind;
+        return $this->nights;
     }
 
-    public function getOvernightId(): ?string
+    public function setNights(int $nights): static
     {
-        return $this->overnightId;
+        $this->nights = $nights;
+
+        return $this;
     }
 
-    public function setOvernight(?string $kind, ?string $id): static
+    /** The days it takes: its nights, and a last day with none takes one. */
+    public function getLength(): int
     {
-        $this->overnightKind = $kind;
-        $this->overnightId = $id;
+        return max(1, $this->nights);
+    }
+
+    /**
+     * @return list<string|null>
+     */
+    public function getStays(): array
+    {
+        return $this->stays;
+    }
+
+    /**
+     * @param list<string|null> $stays
+     */
+    public function setStays(array $stays): static
+    {
+        $this->stays = $stays;
+
+        return $this;
+    }
+
+    public function getActivities(): string
+    {
+        return $this->activities;
+    }
+
+    public function setActivities(string $activities): static
+    {
+        $this->activities = $activities;
 
         return $this;
     }

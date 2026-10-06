@@ -1,0 +1,85 @@
+{# A tour's itinerary, edited as a whole, as drawn (vivutio-designs
+   tours/configure-itinerary/b): the tiers it is sold in, then its stays, each
+   folded to a line and opened in place, moved, duplicated, inserted after or
+   removed; every step saves what is typed, and nothing is kept unless all of
+   it can be. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Itinerary of {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+{%- set lodges = {} -%}
+{%- for group in overnight_choices %}{% for option in group.options %}{% set lodges = lodges|merge({(option.value): option.name}) %}{% endfor %}{% endfor -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Configure</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
+</header>
+{{ tours_.tabs(tour, 'itinerary') }}
+
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+
+<form class="stack" method="post" action="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}" novalidate>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_itinerary') }}">
+    <button type="submit" name="step" value="save" hidden aria-hidden="true" tabindex="-1"></button>
+    <section class="panel">
+        <header class="panel-head"><h2>Sold in</h2><p>The lodging tiers the tour is sold in, cheapest first; each night names a lodge for each</p></header>
+        <div class="field{{ wrong.tiers is defined ? ' wrong' }}"><label for="itinerary-tiers">Tiers</label><input class="input" id="itinerary-tiers" name="tiers" value="{{ tiers }}" placeholder="Empty: one lodging a night">{{ tours_.hint('tiers', wrong, 'Silver, Gold, Platinum') }}</div>
+    </section>
+
+    <section class="panel list" data-itinerary>
+        <header class="panel-head"><h2>Itinerary</h2><p>A line a stay; open one to change it</p></header>
+        {%- set first = 1 -%}
+        {% for day in days %}
+            {%- set i = loop.index0 -%}
+            {%- set n = day.nights matches '/^\\d+$/' ? day.nights + 0 : 1 -%}
+            {%- set length = n > 0 ? n : 1 -%}
+            {%- set label = length > 1 ? 'Days ' ~ first ~ '–' ~ (first + length - 1) : 'Day ' ~ first -%}
+            {%- set first = first + length -%}
+            {%- set route = day.destinations|filter(k => k)|map(k => destination_names[k] ?? k) -%}
+            {%- set nights = day.nights == '0' ? 'No night: the tour ends' : ((day.nights ?: '1') ~ ' night' ~ ((day.nights ?: '1') == '1' ? '' : 's')) -%}
+            <details class="day" data-stay-at="{{ i }}"{{ open is same as(i) ? ' open' }}>
+                <summary class="fact"><span>{{ label }} · <b>{{ day.title ?: (route ? route|join(' → ') : 'Not yet written') }}</b> <small>{{ (route|join(' → ') ~ (route ? ' · ' : '') ~ nights ~ ((day.stays|first) ? ' · ' ~ (lodges[day.stays|first] ?? '') : '')) }}</small></span>
+                    <span class="actions">
+                        <button type="submit" class="button small outline" name="step" value="up:{{ i }}" title="Move {{ label|lower }} up"{{ loop.first ? ' disabled' }}>↑</button>
+                        <button type="submit" class="button small outline" name="step" value="down:{{ i }}" title="Move {{ label|lower }} down"{{ loop.last ? ' disabled' }}>↓</button>
+                        <button type="submit" class="button small outline" name="step" value="duplicate:{{ i }}" title="Duplicate {{ label|lower }}">Duplicate</button>
+                        <button type="submit" class="button small outline" name="step" value="insert:{{ i }}" title="Insert a day after {{ label|lower }}">Insert after</button>
+                        <button type="submit" class="button small quiet" name="step" value="remove:{{ i }}" title="Remove {{ label|lower }}">Remove</button>
+                    </span>
+                </summary>
+                {%- set f = 'days[' ~ i ~ ']' -%}
+                <div class="field{{ wrong[f ~ '[title]'] is defined ? ' wrong' }}"><label for="day-{{ i }}-title">Title</label><input class="input" id="day-{{ i }}-title" name="{{ f }}[title]" value="{{ day.title }}" maxlength="120" placeholder="Empty: the route names it">{{ tours_.hint(f ~ '[title]', wrong, null) }}</div>
+                <div class="grid-3">
+                    {% for d, caption in ['Route · from', 'Through', 'To'] %}
+                        {%- set name = f ~ '[destinations][' ~ d ~ ']' -%}
+                        <div class="field{{ wrong[name] is defined ? ' wrong' }}"><label for="day-{{ i }}-destination-{{ d }}">{{ caption }}</label><select class="select" id="day-{{ i }}-destination-{{ d }}" name="{{ name }}"><option value="">None</option>{% for country, destinations in destination_choices %}<optgroup label="{{ country }}">{% for destination in destinations %}<option value="{{ destination.key }}"{{ destination.key == (day.destinations[d] ?? '') ? ' selected' }}>{{ destination.name }}</option>{% endfor %}</optgroup>{% endfor %}</select>{{ tours_.hint(name, wrong, null) }}</div>
+                    {% endfor %}
+                </div>
+                <div class="grid-3">
+                    {% for t, tier in tier_names %}
+                        {%- set name = f ~ '[stays][' ~ t ~ ']' -%}
+                        <div class="field{{ wrong[name] is defined ? ' wrong' }}"><label for="day-{{ i }}-stay-{{ t }}">{{ tier == 'The night at' ? tier : 'The night at · ' ~ tier }}</label><select class="select" id="day-{{ i }}-stay-{{ t }}" name="{{ name }}"><option value="">Not set</option>{% for group in overnight_choices %}<optgroup label="{{ group.label }}">{% for option in group.options %}<option value="{{ option.value }}"{{ option.value == (day.stays[t] ?? '') ? ' selected' }}>{{ option.name }}</option>{% endfor %}</optgroup>{% endfor %}</select>{{ tours_.hint(name, wrong, null) }}</div>
+                    {% endfor %}
+                </div>
+                <div class="grid-3">
+                    {% for key, caption in {nights: 'Nights here', distance_km: 'Distance, km', drive_hours: 'Driving, hours'} %}
+                        {%- set name = f ~ '[' ~ key ~ ']' -%}
+                        <div class="field{{ wrong[name] is defined ? ' wrong' }}"><label for="day-{{ i }}-{{ key }}">{{ caption }}</label><input class="input" id="day-{{ i }}-{{ key }}" name="{{ name }}" inputmode="decimal" value="{{ key == 'nights' ? (day.nights == '' ? '1' : day.nights) : day[key] }}">{{ tours_.hint(name, wrong, key == 'nights' ? '0 for a last day' : null) }}</div>
+                    {% endfor %}
+                </div>
+                <div class="field{{ wrong[f ~ '[activities]'] is defined ? ' wrong' }}"><label for="day-{{ i }}-activities">Activities</label><input class="input" id="day-{{ i }}-activities" name="{{ f }}[activities]" value="{{ day.activities }}" maxlength="240">{{ tours_.hint(f ~ '[activities]', wrong, null) }}</div>
+                <fieldset class="field"><legend>Meals included</legend>{% for meal in meals %}<label class="check"><input type="checkbox" name="{{ f }}[meals][{{ meal.value }}]" value="1"{{ meal.value in day.meals ? ' checked' }}> {{ meal.label }}</label>{% endfor %}</fieldset>
+                <div class="field{{ wrong[f ~ '[description]'] is defined ? ' wrong' }}"><label for="day-{{ i }}-description">What happens</label><textarea class="textarea" id="day-{{ i }}-description" name="{{ f }}[description]" rows="2">{{ day.description }}</textarea>{{ tours_.hint(f ~ '[description]', wrong, null) }}</div>
+            </details>
+        {% else %}
+            <div class="empty"><b>No days yet</b><span>Add the first day, then the rest in order.</span></div>
+        {% endfor %}
+        <footer class="panel-foot"><span class="state"></span><button type="submit" class="button small outline" name="step" value="add">+ Add a day</button></footer>
+    </section>
+
+    <section class="panel"><footer class="panel-foot"><span class="state">Nothing is saved until Save; each step above saves what is typed</span><button type="reset" class="button quiet">Discard</button><button type="submit" class="button main" name="step" value="save">Save itinerary</button></footer></section>
+</form>
+{% endblock %}

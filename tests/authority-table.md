@@ -74,7 +74,7 @@ Checks: `tours.manage`
 | Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
 | Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
 
-## touring_day_configure: GET /tours/0199b1c0-0000-7000-8000-00000000a001/days/0199b1c0-0000-7000-8000-00000000a002/configure
+## touring_tour_itinerary: GET /tours/0199b1c0-0000-7000-8000-00000000a001/itinerary
 
 Checks: `tours.manage`
 
@@ -85,24 +85,10 @@ Checks: `tours.manage`
 | Staff, no position | refused |
 | Staff holding the pair | refused |
 | Staff holding all but the pair | refused |
-| Admin | allowed: Day 1 of Probed tour · vivutio |
-| Super Admin | allowed: Day 1 of Probed tour · vivutio |
+| Admin | allowed: Itinerary of Probed tour · vivutio |
+| Super Admin | allowed: Itinerary of Probed tour · vivutio |
 
-## touring_day_configure: POST /tours/0199b1c0-0000-7000-8000-00000000a001/days/0199b1c0-0000-7000-8000-00000000a002/configure
-
-Checks: `tours.manage`
-
-| Person | Outcome |
-|---|---|
-| signed out | sent to sign-in |
-| deactivated while signed in | sent to sign-in |
-| Staff, no position | refused |
-| Staff holding the pair | refused |
-| Staff holding all but the pair | refused |
-| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
-| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
-
-## touring_day_add: POST /tours/0199b1c0-0000-7000-8000-00000000a001/days
+## touring_tour_itinerary: POST /tours/0199b1c0-0000-7000-8000-00000000a001/itinerary
 
 Checks: `tours.manage`
 
@@ -113,8 +99,8 @@ Checks: `tours.manage`
 | Staff, no position | refused |
 | Staff holding the pair | refused |
 | Staff holding all but the pair | refused |
-| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
-| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
+| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/itinerary |
+| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/itinerary |
 
 ## touring_tour_open: POST /tours/0199b1c0-0000-7000-8000-00000000a001/open
 
@@ -143,20 +129,6 @@ Checks: `tours.manage`
 | Staff holding all but the pair | refused |
 | Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
 | Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
-
-## touring_day_remove: POST /tours/0199b1c0-0000-7000-8000-00000000a001/days/0199b1c0-0000-7000-8000-00000000a002/remove
-
-Checks: `tours.manage`
-
-| Person | Outcome |
-|---|---|
-| signed out | sent to sign-in |
-| deactivated while signed in | sent to sign-in |
-| Staff, no position | refused |
-| Staff holding the pair | refused |
-| Staff holding all but the pair | refused |
-| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
-| Super Admin | not found |
 
 ## touring_tour_add: POST /tours
 

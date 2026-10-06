@@ -17,7 +17,6 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Intl\Countries;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -29,7 +28,6 @@ use Twig\Environment;
 use Vivutio\Bundle\PlaceBundle\Enum\ResidencyEnum;
 use Vivutio\Bundle\PlaceBundle\Repository\DestinationRepository;
 use Vivutio\Touring\Entity\Tour;
-use Vivutio\Touring\Entity\TourDay;
 use Vivutio\Touring\Enum\MealEnum;
 use Vivutio\Touring\Enum\TourStatusEnum;
 use Vivutio\Touring\Exception\InvalidTourException;
@@ -39,9 +37,9 @@ use Vivutio\Touring\Service\ParkFeeService;
 use Vivutio\Touring\Service\TourService;
 
 /**
- * The tours: the register by status, a tour's page with its days and what the
- * parks charge a party, its Configure page, and its days. Read with
- * tours.read, written with tours.manage.
+ * The tours: the register by status, a tour's page with its itinerary and
+ * what the parks charge a party, its Configure page, and its itinerary edited
+ * as a whole. Read with tours.read, written with tours.manage.
  */
 final readonly class TourController
 {
@@ -51,9 +49,7 @@ final readonly class TourController
     public const string CONFIGURE = 'touring_tour_configure';
     public const string OPEN = 'touring_tour_open';
     public const string ARCHIVE = 'touring_tour_archive';
-    public const string ADD_DAY = 'touring_day_add';
-    public const string CONFIGURE_DAY = 'touring_day_configure';
-    public const string REMOVE_DAY = 'touring_day_remove';
+    public const string ITINERARY = 'touring_tour_itinerary';
 
     public const string READ = 'tours.read';
     public const string MANAGE = 'tours.manage';
@@ -168,77 +164,31 @@ final readonly class TourController
         return $this->to($tour);
     }
 
-    #[Route('/tours/{uuid}/days', name: self::ADD_DAY, requirements: ['uuid' => Requirement::UUID], methods: ['POST'])]
+    #[Route('/tours/{uuid}/itinerary', name: self::ITINERARY, requirements: ['uuid' => Requirement::UUID], methods: ['GET', 'POST'])]
     #[IsGranted(self::MANAGE)]
-    public function addDay(
+    public function itinerary(
         Request $request,
         #[MapEntity(mapping: ['uuid' => 'uuid'])]
         Tour $tour,
     ): Response {
-        $sent = $request->getPayload()->all();
-        if (!$this->tokens->isTokenValid(new CsrfToken('touring_day', \is_string($sent['_token'] ?? null) ? $sent['_token'] : ''))) {
-            return $this->tourPage($tour, $request, $sent, expired: true);
-        }
-
-        try {
-            $this->service->addDay($tour, $sent);
-        } catch (InvalidTourException $refusal) {
-            return $this->tourPage($tour, $request, $sent, [$refusal->field => $refusal->getMessage()]);
-        }
-
-        return $this->to($tour);
-    }
-
-    #[Route('/tours/{uuid}/days/{day}/configure', name: self::CONFIGURE_DAY, requirements: ['uuid' => Requirement::UUID, 'day' => Requirement::UUID], methods: ['GET', 'POST'])]
-    #[IsGranted(self::MANAGE)]
-    public function configureDay(
-        Request $request,
-        #[MapEntity(mapping: ['uuid' => 'uuid'])]
-        Tour $tour,
-        #[MapEntity(mapping: ['day' => 'uuid'])]
-        TourDay $day,
-    ): Response {
-        $this->belongs($tour, $day);
         if (!$request->isMethod('POST')) {
-            return $this->dayPage($day, self::typedDay($day));
+            $open = $request->query->getString('open');
+
+            return $this->itineraryPage($tour, null, ctype_digit($open) ? (int) $open : null);
         }
 
         $sent = $request->getPayload()->all();
-        if (!$this->tokens->isTokenValid(new CsrfToken('touring_day', \is_string($sent['_token'] ?? null) ? $sent['_token'] : ''))) {
-            return $this->dayPage($day, $sent, expired: true);
+        if (!$this->tokens->isTokenValid(new CsrfToken('touring_itinerary', \is_string($sent['_token'] ?? null) ? $sent['_token'] : ''))) {
+            return $this->itineraryPage($tour, $sent, null, expired: true);
         }
 
         try {
-            $this->service->changeDay($day, $sent);
+            $open = $this->service->saveItinerary($tour, $sent, \is_string($sent['step'] ?? null) ? $sent['step'] : 'save');
         } catch (InvalidTourException $refusal) {
-            return $this->dayPage($day, $sent, [$refusal->field => $refusal->getMessage()]);
+            return $this->itineraryPage($tour, $sent, null, [$refusal->field => $refusal->getMessage()]);
         }
 
-        return $this->to($tour);
-    }
-
-    #[Route('/tours/{uuid}/days/{day}/remove', name: self::REMOVE_DAY, requirements: ['uuid' => Requirement::UUID, 'day' => Requirement::UUID], methods: ['POST'])]
-    #[IsGranted(self::MANAGE)]
-    public function removeDay(
-        Request $request,
-        #[MapEntity(mapping: ['uuid' => 'uuid'])]
-        Tour $tour,
-        #[MapEntity(mapping: ['day' => 'uuid'])]
-        TourDay $day,
-    ): Response {
-        $this->belongs($tour, $day);
-        if ($this->tokens->isTokenValid(new CsrfToken('touring_day_remove', $request->getPayload()->getString('_token')))) {
-            $this->service->removeDay($day);
-        }
-
-        return $this->to($tour);
-    }
-
-    private function belongs(Tour $tour, TourDay $day): void
-    {
-        if ($day->getTour() !== $tour) {
-            throw new NotFoundHttpException();
-        }
+        return new RedirectResponse($this->urls->generate(self::ITINERARY, null === $open ? ['uuid' => $tour->getUuid()] : ['uuid' => $tour->getUuid(), 'open' => $open]));
     }
 
     private function to(Tour $tour): RedirectResponse
@@ -269,20 +219,20 @@ final readonly class TourController
         ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
-    /**
-     * @param array<mixed>          $sent
-     * @param array<string, string> $wrong
-     */
-    private function tourPage(Tour $tour, Request $request, array $sent = [], array $wrong = [], bool $expired = false): Response
+    private function tourPage(Tour $tour, Request $request): Response
     {
-        $overnights = [];
+        $titles = [];
+        $stays = [];
         foreach ($tour->getDays() as $day) {
-            $overnights[$day->getNumber()] = $this->service->overnightName($day);
+            $titles[$day->getNumber()] = $this->service->titleOf($day);
+            $stays[$day->getNumber()] = $this->service->staysOf($day);
         }
 
         return new Response($this->twig->render('@VivutioTouring/tours/show.html.twig', [
             'tour' => $tour,
-            'overnights' => $overnights,
+            'schedule' => $this->service->schedule($tour),
+            'titles' => $titles,
+            'stays' => $stays,
             'names' => $this->destinationNames(),
             'quote' => $this->quote($tour, $request),
             'asked' => [
@@ -292,10 +242,7 @@ final readonly class TourController
                 'residency' => $request->query->getString('residency', ResidencyEnum::NonResident->value),
             ],
             'residencies' => ResidencyEnum::cases(),
-            ...$this->dayForm($sent),
-            'wrong' => $wrong,
-            'expired' => $expired,
-        ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
+        ]));
     }
 
     /**
@@ -313,68 +260,75 @@ final readonly class TourController
     }
 
     /**
-     * @param array<mixed>          $sent
+     * The itinerary's page: what was typed when a step was refused, or what
+     * is kept; the stay a step reached, or the one refused, is open.
+     *
+     * @param array<mixed>|null     $sent
      * @param array<string, string> $wrong
      */
-    private function dayPage(TourDay $day, array $sent, array $wrong = [], bool $expired = false): Response
-    {
-        return new Response($this->twig->render('@VivutioTouring/tours/day_configure.html.twig', [
-            'tour' => $day->getTour(),
-            'day' => $day,
-            ...$this->dayForm($sent),
-            'wrong' => $wrong,
-            'expired' => $expired,
-        ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
-    }
-
-    /**
-     * What the day's form needs, with what was typed.
-     *
-     * @param array<mixed> $sent
-     *
-     * @return array<string, mixed>
-     */
-    private function dayForm(array $sent): array
+    private function itineraryPage(Tour $tour, ?array $sent, ?int $open, array $wrong = [], bool $expired = false): Response
     {
         $byCountry = [];
         foreach ($this->destinations->findBy([], ['name' => 'ASC']) as $destination) {
             $byCountry[Countries::getName($destination->getCountry())][] = $destination;
         }
         ksort($byCountry);
-        $text = static fn (string $key): string => \is_string($sent[$key] ?? null) ? $sent[$key] : '';
-        $destinations = \is_array($sent['destinations'] ?? null) ? $sent['destinations'] : [];
-        $meals = \is_array($sent['meals'] ?? null) ? $sent['meals'] : [];
 
-        return [
+        if (null === $sent) {
+            $tiers = implode(', ', $tour->getTiers());
+            $days = [];
+            foreach ($tour->getDays() as $day) {
+                $days[] = [
+                    'title' => $day->getTitle(),
+                    'destinations' => $day->getDestinations(),
+                    'stays' => array_map(static fn (?string $stay): string => $stay ?? '', $day->getStays()),
+                    'nights' => (string) $day->getNights(),
+                    'meals' => $day->getMeals(),
+                    'activities' => $day->getActivities(),
+                    'description' => $day->getDescription(),
+                    'distance_km' => null === $day->getDistanceKm() ? '' : (string) $day->getDistanceKm(),
+                    'drive_hours' => $day->getDriveHours() ?? '',
+                ];
+            }
+        } else {
+            $tiers = \is_string($sent['tiers'] ?? null) ? $sent['tiers'] : '';
+            $days = [];
+            foreach (\is_array($sent['days'] ?? null) ? array_values($sent['days']) : [] as $day) {
+                $day = \is_array($day) ? $day : [];
+                $text = static fn (string $key): string => \is_string($day[$key] ?? null) ? $day[$key] : '';
+                $days[] = [
+                    'title' => $text('title'),
+                    'destinations' => array_values(array_filter(\is_array($day['destinations'] ?? null) ? $day['destinations'] : [], 'is_string')),
+                    'stays' => array_values(array_filter(\is_array($day['stays'] ?? null) ? $day['stays'] : [], 'is_string')),
+                    'nights' => $text('nights'),
+                    'meals' => array_keys(array_filter(\is_array($day['meals'] ?? null) ? $day['meals'] : [])),
+                    'activities' => $text('activities'),
+                    'description' => $text('description'),
+                    'distance_km' => $text('distance_km'),
+                    'drive_hours' => $text('drive_hours'),
+                ];
+            }
+            foreach (array_keys($wrong) as $field) {
+                if (1 === preg_match('{^days\[(\d+)\]}', $field, $at)) {
+                    $open = (int) $at[1];
+                }
+            }
+        }
+        $tierNames = array_values(array_filter(array_map(trim(...), explode(',', $tiers))));
+
+        return new Response($this->twig->render('@VivutioTouring/tours/itinerary.html.twig', [
+            'tour' => $tour,
+            'tiers' => $tiers,
+            'tier_names' => [] === $tierNames ? ['The night at'] : $tierNames,
+            'days' => $days,
+            'open' => $open,
             'destination_choices' => $byCountry,
+            'destination_names' => $this->destinationNames(),
             'overnight_choices' => $this->service->overnightChoices(),
             'meals' => MealEnum::cases(),
-            'typed' => [
-                'title' => $text('title'),
-                'destinations' => array_map(static fn (int $i): string => \is_string($destinations[$i] ?? null) ? $destinations[$i] : '', range(0, TourDay::MOST_DESTINATIONS - 1)),
-                'overnight' => $text('overnight'),
-                'meals' => array_keys(array_filter($meals)),
-                'description' => $text('description'),
-                'distance_km' => $text('distance_km'),
-                'drive_hours' => $text('drive_hours'),
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function typedDay(TourDay $day): array
-    {
-        return [
-            'title' => $day->getTitle(),
-            'destinations' => $day->getDestinations(),
-            'overnight' => null === $day->getOvernightKind() ? '' : $day->getOvernightKind().':'.$day->getOvernightId(),
-            'meals' => array_fill_keys($day->getMeals(), '1'),
-            'description' => $day->getDescription(),
-            'distance_km' => null === $day->getDistanceKm() ? '' : (string) $day->getDistanceKm(),
-            'drive_hours' => $day->getDriveHours() ?? '',
-        ];
+            'wrong' => $wrong,
+            'expired' => $expired,
+        ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     /**

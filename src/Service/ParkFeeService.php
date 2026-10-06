@@ -25,8 +25,8 @@ use Vivutio\Touring\Model\FeeQuote;
 
 /**
  * What the parks charge a party on a tour starting on a day, from the fees in
- * force each day in the core. Each destination of a day is charged once that
- * day: a fee a person a day every day, a fee a person an entry and a vehicle
+ * force each day in the core. A stay of three nights is three days at its
+ * destinations, and each is charged once a day: a fee a person a day every day, a fee a person an entry and a vehicle
  * an entry on the first day of each visit, a visit being the days in a row a
  * tour is there. The party travels in one vehicle.
  */
@@ -46,33 +46,36 @@ final readonly class ParkFeeService
         $totals = [];
         $missing = [];
         $yesterday = [];
-        foreach ($tour->getDays() as $day) {
-            $date = $start->modify(\sprintf('+%d days', $day->getNumber() - 1));
+        $offset = 0;
+        foreach ($tour->getDays() as $stay) {
             $charged = [];
-            foreach ($day->getDestinations() as $key) {
-                $destination = $this->destinations->findOneBy(['key' => $key]);
-                if (!$destination instanceof Destination) {
-                    continue;
-                }
-                $entering = !\in_array($key, $yesterday, true);
-                $forAdults = $this->fees->charged($destination, $date, GuestEnum::Adult, $residency);
-                if ([] === $forAdults) {
-                    $missing[] = \sprintf('No fee entered for %s on %s', $destination->getName(), $date->format('j M Y'));
-                    continue;
-                }
-                foreach ($forAdults as $fee) {
-                    self::add($charged, $fee, FeePerEnum::VehicleEntry === $fee->getPer() ? 1 : $adults, $entering);
-                }
-                if ($children > 0) {
-                    foreach ($this->fees->charged($destination, $date, GuestEnum::Child, $residency) as $fee) {
-                        if (FeePerEnum::VehicleEntry !== $fee->getPer()) {
-                            self::add($charged, $fee, $children, $entering);
+            for ($night = 0; $night < $stay->getLength(); ++$night) {
+                $date = $start->modify(\sprintf('+%d days', $offset++));
+                foreach ($stay->getDestinations() as $key) {
+                    $destination = $this->destinations->findOneBy(['key' => $key]);
+                    if (!$destination instanceof Destination) {
+                        continue;
+                    }
+                    $entering = !\in_array($key, $yesterday, true);
+                    $forAdults = $this->fees->charged($destination, $date, GuestEnum::Adult, $residency);
+                    if ([] === $forAdults) {
+                        $missing[] = \sprintf('No fee entered for %s on %s', $destination->getName(), $date->format('j M Y'));
+                        continue;
+                    }
+                    foreach ($forAdults as $fee) {
+                        self::add($charged, $fee, FeePerEnum::VehicleEntry === $fee->getPer() ? 1 : $adults, $entering);
+                    }
+                    if ($children > 0) {
+                        foreach ($this->fees->charged($destination, $date, GuestEnum::Child, $residency) as $fee) {
+                            if (FeePerEnum::VehicleEntry !== $fee->getPer()) {
+                                self::add($charged, $fee, $children, $entering);
+                            }
                         }
                     }
                 }
+                $yesterday = $stay->getDestinations();
             }
-            $yesterday = $day->getDestinations();
-            $days[$day->getNumber()] = $charged;
+            $days[$stay->getNumber()] = $charged;
             foreach ($charged as $currency => $cents) {
                 $totals[$currency] = ($totals[$currency] ?? 0) + $cents;
             }

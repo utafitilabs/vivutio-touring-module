@@ -62,6 +62,10 @@ class Tour
     #[ORM\Column(type: Types::JSON)]
     private array $excluded = [];
 
+    /** @var list<string> the lodging tiers it is sold in, cheapest first; none is one lodging a night */
+    #[ORM\Column(type: Types::JSON)]
+    private array $tiers = [];
+
     #[ORM\Column(length: 16, enumType: TourStatusEnum::class)]
     private TourStatusEnum $status = TourStatusEnum::Draft;
 
@@ -168,6 +172,24 @@ class Tour
     public function setExcluded(array $excluded): static
     {
         $this->excluded = $excluded;
+
+        return $this;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getTiers(): array
+    {
+        return $this->tiers;
+    }
+
+    /**
+     * @param list<string> $tiers
+     */
+    public function setTiers(array $tiers): static
+    {
+        $this->tiers = $tiers;
 
         return $this;
     }

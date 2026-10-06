@@ -48,74 +48,88 @@ final class TheToursTest extends WebTestCase
         $this->migrate();
     }
 
-    public function testATourIsWrittenDayByDay(): void
+    /** The itinerary is written on one page, as drawn (vivutio-designs tours/configure-itinerary/b): tiers, then the days, one Save. */
+    public function testAnItineraryIsWrittenOnOnePage(): void
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
         $camp = $this->accommodationPartner();
-
-        self::assertSame('/tours', $this->browser->request('GET', '/')->filter('nav.menu')->selectLink('Tours')->attr('href'));
-        $tour = $this->addTour('Northern Circuit');
-        self::assertResponseRedirects('/tours/'.$tour->getUuid());
-
-        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
-        self::assertSame('Draft', trim($page->filter('.title .chip')->text()));
-        self::assertSame(['Vivutio Stand-in Lodge', 'Ngorongoro Rim Camp'], array_values(array_filter($page->filter('select[name="overnight"] option')->each(static fn (Crawler $option): string => trim($option->text())), static fn (string $name): bool => 'Not set' !== $name)));
-        $this->addDay($tour, ['title' => 'Arusha to Tarangire', 'destinations[0]' => 'tz-tarangire', 'overnight' => 'lodge:'.StandInPlaces::LODGE, 'meals[lunch]' => '1', 'meals[dinner]' => '1', 'distance_km' => '120', 'drive_hours' => '2.5']);
-        $this->addDay($tour, ['title' => 'Into the Serengeti', 'destinations[0]' => 'tz-serengeti', 'overnight' => 'partner:'.$camp->getPartnerId()]);
-
-        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
-        self::assertSame(['Day 1 · Arusha to Tarangire', 'Day 2 · Into the Serengeti'], $page->filter('[data-day] h3')->each(static fn (Crawler $title): string => trim($title->text())));
-        $first = $page->filter('[data-day]')->first();
-        self::assertSame('Tarangire National Park', trim($first->filter('[data-destinations]')->text()));
-        self::assertSame('Vivutio Stand-in Lodge', trim($first->filter('[data-overnight]')->text()));
-        self::assertSame('Lunch, dinner · 120 km · 2.5 hours', trim($first->filter('[data-meta]')->text()));
-        self::assertSame('Ngorongoro Rim Camp', trim($page->filter('[data-day]')->eq(1)->filter('[data-overnight]')->text()));
+        $tour = $this->addTour('7 Days Safari Tanzania');
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/configure');
-        $this->browser->submit($page->selectButton('Save tour')->form(['name' => 'Northern Circuit', 'summary' => 'Tarangire, the Serengeti and the Crater.', 'group_min' => '2', 'group_max' => '6', 'included' => "Park fees\nFull board", 'excluded' => 'Flights']));
-        self::assertResponseRedirects('/tours/'.$tour->getUuid());
+        self::assertSame(['Details', 'Itinerary'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
+        $page = $this->itinerary($tour);
+        $this->browser->submit($page->selectButton('Add a day')->form(['tiers' => 'Silver, Gold']));
         $page = $this->browser->followRedirect();
-        self::assertSame(['Park fees', 'Full board'], $page->filter('[data-included] li')->each(static fn (Crawler $item): string => trim($item->text())));
-        self::assertSame('2 to 6', trim($page->filter('.band [data-group]')->text()));
+        self::assertSame(['days[0][stays][0]', 'days[0][stays][1]'], $page->filter('select[name^="days[0][stays]"]')->each(static fn (Crawler $select): string => (string) $select->attr('name')));
+
+        $this->browser->submit($page->selectButton('Add a day')->form([
+            'days[0][title]' => 'Arrival in Arusha',
+            'days[0][stays][0]' => 'lodge:'.StandInPlaces::LODGE,
+            'days[0][stays][1]' => 'partner:'.$camp->getPartnerId(),
+            'days[0][meals][dinner]' => '1',
+            'days[0][activities]' => 'Airport pickup and transfer',
+        ]));
+        $page = $this->browser->followRedirect();
+        $this->browser->submit($page->selectButton('Save itinerary')->form([
+            'days[1][destinations][0]' => 'tz-serengeti',
+            'days[1][nights]' => '2',
+            'days[1][stays][0]' => 'lodge:'.StandInPlaces::LODGE,
+            'days[1][distance_km]' => '330',
+            'days[1][drive_hours]' => '7',
+        ]));
+        self::assertResponseRedirects('/tours/'.$tour->getUuid().'/itinerary');
+
+        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
+        self::assertSame(['Day 1 · Arrival in Arusha', 'Days 2–3 · Serengeti National Park'], $page->filter('[data-day] h3')->each(static fn (Crawler $title): string => trim($title->text())));
+        self::assertSame(['Silver: Vivutio Stand-in Lodge', 'Gold: Ngorongoro Rim Camp'], $page->filter('[data-day]')->first()->filter('[data-stay]')->each(static fn (Crawler $stay): string => trim((string) preg_replace('/\s+/', ' ', $stay->text()))));
+        self::assertSame('Dinner · Airport pickup and transfer', trim($page->filter('[data-day]')->first()->filter('[data-meta]')->text()));
+        self::assertSame('2 nights · 330 km · 7 hours', trim($page->filter('[data-day]')->eq(1)->filter('[data-meta]')->text()));
+        self::assertSame('3 days · 3 nights', trim($page->filter('.band [data-length]')->text()));
     }
 
-    public function testADayIsChangedAndRemovedAndTheRestRenumbered(): void
+    public function testDaysAreMovedDuplicatedInsertedAndRemoved(): void
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
         $tour = $this->addTour('Northern Circuit');
-        foreach (['Tarangire', 'Serengeti', 'Crater'] as $title) {
-            $this->addDay($tour, ['title' => $title]);
-        }
+        $this->writeDays($tour, ['Tarangire', 'Serengeti', 'Crater']);
 
-        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
-        $this->browser->click($page->filter('[data-day]')->eq(1)->selectLink('Edit')->link());
-        $this->browser->submit($this->browser->getCrawler()->selectButton('Save day')->form(['title' => 'Central Serengeti']));
-        self::assertResponseRedirects('/tours/'.$tour->getUuid());
-
-        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
-        $this->browser->submit($page->filter('[data-day]')->first()->selectButton('Remove')->form());
-        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
-        self::assertSame(['Day 1 · Central Serengeti', 'Day 2 · Crater'], $page->filter('[data-day] h3')->each(static fn (Crawler $title): string => trim($title->text())));
+        $this->press($tour, 'Move day 3 up');
+        self::assertSame(['Tarangire', 'Crater', 'Serengeti'], $this->titles($tour));
+        $this->press($tour, 'Duplicate day 1');
+        self::assertSame(['Tarangire', 'Tarangire', 'Crater', 'Serengeti'], $this->titles($tour));
+        $this->press($tour, 'Insert a day after day 2');
+        self::assertSame(['Tarangire', 'Tarangire', '', 'Crater', 'Serengeti'], $this->titles($tour));
+        $this->press($tour, 'Remove day 3');
+        $this->press($tour, 'Remove day 1');
+        $page = $this->browser->followRedirect();
+        self::assertSame(['Tarangire'], $page->filter('details[open] input[name$="[title]"]')->each(static fn (Crawler $input): string => (string) $input->attr('value')), 'the day before a removed one, or the first, is open');
+        self::assertSame(['Tarangire', 'Crater', 'Serengeti'], $this->titles($tour));
     }
 
-    public function testWhatADayCannotBeIsRefusedBesideItsField(): void
+    public function testWhatADayCannotBeIsRefusedBesideItsFieldAndNothingIsSaved(): void
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
         $tour = $this->addTour('Northern Circuit');
+        $this->writeDays($tour, ['Tarangire', 'Serengeti']);
 
         foreach ([
-            ['title', ['title' => '']],
-            ['destinations[0]', ['title' => 'Somewhere', 'destinations[0]' => 'tz-nowhere']],
-            ['overnight', ['title' => 'Somewhere', 'overnight' => 'lodge:0199b1c0-0000-7000-8000-00000000dead']],
-            ['distance_km', ['title' => 'Somewhere', 'distance_km' => 'far']],
-            ['drive_hours', ['title' => 'Somewhere', 'drive_hours' => '30']],
+            ['days[1][destinations][0]', ['days[1][destinations][0]' => 'tz-nowhere']],
+            ['days[1][stays][0]', ['days[1][stays][0]' => 'lodge:0199b1c0-0000-7000-8000-00000000dead']],
+            ['days[1][nights]', ['days[1][nights]' => 'two']],
+            ['days[1][distance_km]', ['days[1][distance_km]' => 'far']],
+            ['days[0][drive_hours]', ['days[0][drive_hours]' => '30']],
+            ['tiers', ['tiers' => 'Silver, silver']],
         ] as [$field, $values]) {
-            $page = $this->addDay($tour, $values, 422);
+            $form = $this->itinerary($tour)->selectButton('Save itinerary')->form();
+            $form->disableValidation();
+            $page = $this->browser->submit($form->setValues([...$values, 'days[0][title]' => 'Changed']));
+            self::assertResponseStatusCodeSame(422);
             self::assertSame($field, $page->filter('.field.wrong')->filter('input, select, textarea')->attr('name'), $field);
+            self::assertSame(['Tarangire', 'Serengeti'], $this->titles($tour), 'nothing is saved');
         }
     }
 
-    /** What the parks charge a party: each day's destinations once, by person a day, a person an entry and a vehicle an entry. */
+    /** What the parks charge a party: a stay of two nights is two days there; entering is charged once. */
     public function testTheParkFeesForAPartyStartingOnADay(): void
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
@@ -127,17 +141,18 @@ final class TheToursTest extends WebTestCase
         $this->fee('tz-ngorongoro', 'conservation', 'adult', 'person_entry', '70');
         $this->fee('tz-ngorongoro', 'conservation', 'child', 'person_entry', '20');
         $tour = $this->addTour('Northern Circuit');
-        $this->addDay($tour, ['title' => 'Tarangire', 'destinations[0]' => 'tz-tarangire']);
-        $this->addDay($tour, ['title' => 'Into the Serengeti', 'destinations[0]' => 'tz-serengeti']);
-        $this->addDay($tour, ['title' => 'Central Serengeti', 'destinations[0]' => 'tz-serengeti']);
-        $this->addDay($tour, ['title' => 'The Crater', 'destinations[0]' => 'tz-ngorongoro']);
-        $this->addDay($tour, ['title' => 'Lake Manyara', 'destinations[0]' => 'tz-lake-manyara']);
+        $this->writeDays($tour, ['Tarangire', 'Serengeti', 'The Crater', 'Lake Manyara'], [
+            'days[0][destinations][0]' => 'tz-tarangire',
+            'days[1][destinations][0]' => 'tz-serengeti',
+            'days[1][nights]' => '2',
+            'days[2][destinations][0]' => 'tz-ngorongoro',
+            'days[3][destinations][0]' => 'tz-lake-manyara',
+        ]);
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'?start=2026-11-01&adults=2&children=1&residency=non_resident');
-        $fees = $page->filter('[data-fees]');
-        self::assertSame(['USD 140.00', 'USD 220.00', 'USD 180.00', 'USD 160.00', '—'], $page->filter('[data-day] [data-day-fees]')->each(static fn (Crawler $cell): string => trim($cell->text())));
-        self::assertSame('USD 700.00', trim($fees->filter('[data-fees-total]')->text()));
-        self::assertSame(['No fee entered for Lake Manyara National Park on 5 Nov 2026'], $fees->filter('[data-missing]')->each(static fn (Crawler $line): string => trim($line->text())));
+        self::assertSame(['USD 140.00', 'USD 400.00', 'USD 160.00', '—'], $page->filter('[data-day] [data-day-fees]')->each(static fn (Crawler $cell): string => trim($cell->text())));
+        self::assertSame('USD 700.00', trim($page->filter('[data-fees-total]')->text()));
+        self::assertSame(['No fee entered for Lake Manyara National Park on 5 Nov 2026'], $page->filter('[data-missing]')->each(static fn (Crawler $line): string => trim($line->text())));
     }
 
     /** A tour opens with at least one day, and is archived and opened again. */
@@ -151,7 +166,7 @@ final class TheToursTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertStringContainsString('A tour opens with at least one day', $page->filter('.notice.danger')->text());
 
-        $this->addDay($tour, ['title' => 'Tarangire']);
+        $this->writeDays($tour, ['Tarangire']);
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/configure');
         $this->browser->submit($page->selectButton('Open the tour')->form());
         self::assertSame('Open', trim($this->browser->request('GET', '/tours/'.$tour->getUuid())->filter('.title .chip')->text()));
@@ -167,15 +182,15 @@ final class TheToursTest extends WebTestCase
     {
         $this->signedInAs($this->person('Baraka', TierEnum::Admin));
         $tour = $this->addTour('Northern Circuit');
-        $this->addDay($tour, ['title' => 'Tarangire']);
+        $this->writeDays($tour, ['Tarangire']);
 
         $sales = (new Department())->setName('Sales')->setAllows(['tours.read']);
         $this->em()->persist($sales);
         $this->signedInAs($this->person('Elia', TierEnum::Staff, ['tours.read', 'tours.manage'], $sales));
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $page->filter('form[method="post"]'));
-        $this->browser->request('GET', '/tours/'.$tour->getUuid().'/configure');
+        self::assertCount(0, $page->filter('a[href$="/itinerary"], a[href$="/configure"]'));
+        $this->browser->request('GET', '/tours/'.$tour->getUuid().'/itinerary');
         self::assertResponseStatusCodeSame(403);
     }
 
@@ -191,6 +206,46 @@ final class TheToursTest extends WebTestCase
         self::assertSame(0, $application->run(new ArrayInput(['command' => 'doctrine:schema:validate', '--skip-property-types' => true]), $output), $output->fetch());
     }
 
+    private function itinerary(Tour $tour): Crawler
+    {
+        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/itinerary');
+        self::assertResponseIsSuccessful();
+
+        return $page;
+    }
+
+    /**
+     * Adds a day for each title, then saves the values given.
+     *
+     * @param list<string>          $titles
+     * @param array<string, string> $values
+     */
+    private function writeDays(Tour $tour, array $titles, array $values = []): void
+    {
+        foreach ($titles as $i => $title) {
+            $this->browser->submit($this->itinerary($tour)->selectButton('Add a day')->form());
+            $values['days['.$i.'][title]'] = $title;
+        }
+        $form = $this->itinerary($tour)->selectButton('Save itinerary')->form();
+        $this->browser->submit($form->setValues($values));
+        self::assertResponseRedirects('/tours/'.$tour->getUuid().'/itinerary');
+    }
+
+    private function press(Tour $tour, string $button): void
+    {
+        $page = $this->itinerary($tour);
+        $this->browser->submit($page->filter('button[title="'.$button.'"]')->form());
+        self::assertResponseStatusCodeSame(302, $button);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function titles(Tour $tour): array
+    {
+        return $this->itinerary($tour)->filter('input[name$="[title]"]')->each(static fn (Crawler $input): string => (string) $input->attr('value'));
+    }
+
     private function addTour(string $name): Tour
     {
         $page = $this->browser->request('GET', '/tours');
@@ -201,20 +256,6 @@ final class TheToursTest extends WebTestCase
         self::assertInstanceOf(Tour::class, $tour);
 
         return $tour;
-    }
-
-    /**
-     * @param array<string, string|list<string>> $values
-     */
-    private function addDay(Tour $tour, array $values, int $answered = 302): Crawler
-    {
-        $page = $this->browser->request('GET', '/tours/'.$tour->getUuid());
-        $form = $page->selectButton('Add the day')->form();
-        $form->disableValidation();
-        $page = $this->browser->submit($form->setValues($values));
-        self::assertResponseStatusCodeSame($answered);
-
-        return $page;
     }
 
     private function fee(string $key, string $kind, string $guest, string $per, string $amount): void

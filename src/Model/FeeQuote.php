@@ -20,7 +20,7 @@ namespace Vivutio\Touring\Model;
 final readonly class FeeQuote
 {
     /**
-     * @param array<int, array<string, int>> $days    by day number, cents by currency
+     * @param array<int, array<string, int>> $days    by stay, in the itinerary's order, cents by currency
      * @param array<string, int>             $totals  cents by currency
      * @param list<string>                   $missing "No fee entered for Lake Manyara National Park on 5 Nov 2026"
      */

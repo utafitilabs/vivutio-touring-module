@@ -12,6 +12,7 @@
     <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Configure</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div></div>
     <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
 </header>
+{{ tours_.tabs(tour, 'details') }}
 
 {% if wrong.status is defined %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ wrong.status }}</span></div>{% endif %}
 

@@ -11,21 +11,7 @@
 <span class="chip{{ status.value == 'open' ? ' ok' : '' }}">{{ status.label }}</span>
 {%- endmacro %}
 
-{# A day's fields, for adding one and for changing one. #}
-{% macro day_fields(typed, wrong, destination_choices, overnight_choices, meals) %}
-{%- import _self as tours_ -%}
-<div class="field{{ wrong.title is defined ? ' wrong' }}"><label for="day-title">Title</label><input class="input" id="day-title" name="title" value="{{ typed.title }}" maxlength="120">{{ tours_.hint('title', wrong, 'What the day is: Arusha to Tarangire') }}</div>
-<div class="grid-3">
-    {% for i in 0..2 %}
-        {%- set field = 'destinations[' ~ i ~ ']' -%}
-        <div class="field{{ wrong[field] is defined ? ' wrong' }}"><label for="day-destination-{{ i }}">{{ i == 0 ? 'Destination' : 'Then' }}</label><select class="select" id="day-destination-{{ i }}" name="{{ field }}"><option value="">None</option>{% for country, destinations in destination_choices %}<optgroup label="{{ country }}">{% for destination in destinations %}<option value="{{ destination.key }}"{{ destination.key == typed.destinations[i] ? ' selected' }}>{{ destination.name }}</option>{% endfor %}</optgroup>{% endfor %}</select>{{ tours_.hint(field, wrong, null) }}</div>
-    {% endfor %}
-</div>
-<div class="grid-3">
-    <div class="field{{ wrong.overnight is defined ? ' wrong' }}"><label for="day-overnight">The night at</label><select class="select" id="day-overnight" name="overnight"><option value="">Not set</option>{% for group in overnight_choices %}<optgroup label="{{ group.label }}">{% for option in group.options %}<option value="{{ option.value }}"{{ option.value == typed.overnight ? ' selected' }}>{{ option.name }}</option>{% endfor %}</optgroup>{% endfor %}</select>{{ tours_.hint('overnight', wrong, null) }}</div>
-    <div class="field{{ wrong.distance_km is defined ? ' wrong' }}"><label for="day-distance">Distance, km</label><input class="input" id="day-distance" name="distance_km" inputmode="numeric" value="{{ typed.distance_km }}">{{ tours_.hint('distance_km', wrong, null) }}</div>
-    <div class="field{{ wrong.drive_hours is defined ? ' wrong' }}"><label for="day-drive">Driving, hours</label><input class="input" id="day-drive" name="drive_hours" inputmode="decimal" value="{{ typed.drive_hours }}">{{ tours_.hint('drive_hours', wrong, null) }}</div>
-</div>
-<fieldset class="field"><legend>Meals included</legend>{% for meal in meals %}<label class="check"><input type="checkbox" name="meals[{{ meal.value }}]" value="1"{{ meal.value in typed.meals ? ' checked' }}> {{ meal.label }}</label>{% endfor %}</fieldset>
-<div class="field{{ wrong.description is defined ? ' wrong' }}"><label for="day-description">What happens</label><textarea class="textarea" id="day-description" name="description" rows="3">{{ typed.description }}</textarea>{{ tours_.hint('description', wrong, null) }}</div>
+{# Configure's tabs: the tour's details, and its itinerary. #}
+{% macro tabs(tour, current) %}
+<nav class="tabs" aria-label="Configure"><a href="{{ path('touring_tour_configure', {uuid: tour.uuid}) }}"{{ current == 'details' ? ' aria-current="page"' }}>Details</a><a href="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}"{{ current == 'itinerary' ? ' aria-current="page"' }}>Itinerary</a></nav>
 {% endmacro %}
