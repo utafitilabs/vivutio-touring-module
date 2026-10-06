@@ -102,6 +102,76 @@ Checks: `tours.manage`
 | Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/itinerary |
 | Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/itinerary |
 
+## touring_tour_prices: GET /tours/0199b1c0-0000-7000-8000-00000000a001/prices
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Prices of Probed tour · vivutio |
+| Super Admin | allowed: Prices of Probed tour · vivutio |
+
+## touring_tour_prices: POST /tours/0199b1c0-0000-7000-8000-00000000a001/prices
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/prices |
+| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/prices |
+
+## touring_seasons: GET /tours/seasons
+
+Checks: `tours.read`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Tour seasons · vivutio |
+| Super Admin | allowed: Tour seasons · vivutio |
+
+## touring_season_configure: GET /tours/seasons/0199b1c0-0000-7000-8000-00000000a003/configure
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Configure Probed season · vivutio |
+| Super Admin | allowed: Configure Probed season · vivutio |
+
+## touring_season_configure: POST /tours/seasons/0199b1c0-0000-7000-8000-00000000a003/configure
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/seasons |
+| Super Admin | redirected to /tours/seasons |
+
 ## touring_tour_open: POST /tours/0199b1c0-0000-7000-8000-00000000a001/open
 
 Checks: `tours.manage`
@@ -129,6 +199,34 @@ Checks: `tours.manage`
 | Staff holding all but the pair | refused |
 | Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
 | Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001 |
+
+## touring_season_add: POST /tours/seasons
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/seasons/{new}/configure |
+| Super Admin | answered 422 |
+
+## touring_season_remove: POST /tours/seasons/0199b1c0-0000-7000-8000-00000000a003/remove
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/seasons |
+| Super Admin | not found |
 
 ## touring_tour_add: POST /tours
 

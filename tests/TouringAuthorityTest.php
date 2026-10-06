@@ -17,9 +17,12 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
 use Vivutio\Bundle\IdentityBundle\Test\AuthorityTestCase;
 use Vivutio\Bundle\IdentityBundle\Test\Probe;
+use Vivutio\Touring\Controller\SeasonController;
 use Vivutio\Touring\Controller\TourController;
 use Vivutio\Touring\Entity\Tour;
 use Vivutio\Touring\Entity\TourDay;
+use Vivutio\Touring\Entity\TourSeason;
+use Vivutio\Touring\Enum\SeasonToneEnum;
 use Vivutio\Touring\Tests\Application\Kernel;
 
 /**
@@ -33,6 +36,8 @@ final class TouringAuthorityTest extends AuthorityTestCase
     private const string TOUR_UUID = '0199b1c0-0000-7000-8000-00000000a001';
     private const string DAY_UUID = '0199b1c0-0000-7000-8000-00000000a002';
     private const string TOUR = '/tours/'.self::TOUR_UUID;
+    private const string SEASON_UUID = '0199b1c0-0000-7000-8000-00000000a003';
+    private const string SEASON = '/tours/seasons/'.self::SEASON_UUID;
 
     protected static function getKernelClass(): string
     {
@@ -51,9 +56,18 @@ final class TouringAuthorityTest extends AuthorityTestCase
             new Probe(TourController::CONFIGURE, 'POST', self::TOUR.'/configure', ['name' => 'Probed tour', 'summary' => '', 'group_min' => '1', 'group_max' => '6', 'included' => '', 'excluded' => ''], formAt: self::TOUR.'/configure'),
             new Probe(TourController::ITINERARY, 'GET', self::TOUR.'/itinerary'),
             new Probe(TourController::ITINERARY, 'POST', self::TOUR.'/itinerary', $itinerary, formAt: self::TOUR.'/itinerary'),
+            new Probe(TourController::PRICES, 'GET', self::TOUR.'/prices'),
+            new Probe(TourController::PRICES, 'POST', self::TOUR.'/prices', ['currency' => 'USD', 'brackets' => '1-6'], formAt: self::TOUR.'/prices'),
+            new Probe(SeasonController::SEASONS, 'GET', '/tours/seasons'),
+            new Probe(SeasonController::CONFIGURE, 'GET', self::SEASON.'/configure'),
+            new Probe(SeasonController::CONFIGURE, 'POST', self::SEASON.'/configure', ['name' => 'Probed season', 'tone' => '2', 'rest' => '1'], formAt: self::SEASON.'/configure'),
             new Probe(TourController::OPEN, 'POST', self::TOUR.'/open', formAt: self::TOUR.'/configure'),
             new Probe(TourController::ARCHIVE, 'POST', self::TOUR.'/archive', formAt: self::TOUR.'/configure'),
             // Sent by each kind of person in turn, so the second allowed finds the name taken.
+            // Sent by each kind of person in turn, so the second allowed finds the name taken.
+            new Probe(SeasonController::ADD, 'POST', '/tours/seasons', ['name' => 'Added by a probe', 'tone' => '1'], formAt: '/tours/seasons'),
+            // Removed by the first allowed, and not found by the next.
+            new Probe(SeasonController::REMOVE, 'POST', self::SEASON.'/remove', formAt: self::SEASON.'/configure'),
             new Probe(TourController::ADD, 'POST', '/tours', ['name' => 'Added by a probe'], formAt: '/tours'),
         ];
     }
@@ -75,5 +89,6 @@ final class TouringAuthorityTest extends AuthorityTestCase
         $day = (new TourDay($tour, 1))->setUuid(Uuid::fromString(self::DAY_UUID))->setTitle('Probed day');
         $tour->getDays()->add($day);
         $entityManager->persist($day);
+        $entityManager->persist((new TourSeason('Probed season', SeasonToneEnum::Busy))->setUuid(Uuid::fromString(self::SEASON_UUID)));
     }
 }

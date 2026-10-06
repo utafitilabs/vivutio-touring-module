@@ -34,6 +34,8 @@ use Vivutio\Touring\Exception\InvalidTourException;
 use Vivutio\Touring\Model\FeeQuote;
 use Vivutio\Touring\Repository\TourRepository;
 use Vivutio\Touring\Service\ParkFeeService;
+use Vivutio\Touring\Service\TourPriceService;
+use Vivutio\Touring\Service\TourSeasonService;
 use Vivutio\Touring\Service\TourService;
 
 /**
@@ -50,6 +52,7 @@ final readonly class TourController
     public const string OPEN = 'touring_tour_open';
     public const string ARCHIVE = 'touring_tour_archive';
     public const string ITINERARY = 'touring_tour_itinerary';
+    public const string PRICES = 'touring_tour_prices';
 
     public const string READ = 'tours.read';
     public const string MANAGE = 'tours.manage';
@@ -60,6 +63,8 @@ final readonly class TourController
         private Environment $twig,
         private TourService $service,
         private ParkFeeService $fees,
+        private TourPriceService $prices,
+        private TourSeasonService $seasons,
         private TourRepository $tours,
         private DestinationRepository $destinations,
         private CsrfTokenManagerInterface $tokens,
@@ -191,6 +196,51 @@ final readonly class TourController
         return new RedirectResponse($this->urls->generate(self::ITINERARY, null === $open ? ['uuid' => $tour->getUuid()] : ['uuid' => $tour->getUuid(), 'open' => $open]));
     }
 
+    #[Route('/tours/{uuid}/prices', name: self::PRICES, requirements: ['uuid' => Requirement::UUID], methods: ['GET', 'POST'])]
+    #[IsGranted(self::MANAGE)]
+    public function prices(
+        Request $request,
+        #[MapEntity(mapping: ['uuid' => 'uuid'])]
+        Tour $tour,
+    ): Response {
+        if (!$request->isMethod('POST')) {
+            return $this->pricesPage($tour, null);
+        }
+        $sent = $request->getPayload()->all();
+        if (!$this->tokens->isTokenValid(new CsrfToken('touring_prices', \is_string($sent['_token'] ?? null) ? $sent['_token'] : ''))) {
+            return $this->pricesPage($tour, $sent, expired: true);
+        }
+
+        try {
+            $this->prices->save($tour, $sent);
+        } catch (InvalidTourException $refusal) {
+            return $this->pricesPage($tour, $sent, [$refusal->field => $refusal->getMessage()]);
+        }
+
+        return new RedirectResponse($this->urls->generate(self::PRICES, ['uuid' => $tour->getUuid()]));
+    }
+
+    /**
+     * @param array<mixed>|null     $sent
+     * @param array<string, string> $wrong
+     */
+    private function pricesPage(Tour $tour, ?array $sent, array $wrong = [], bool $expired = false): Response
+    {
+        $brackets = $tour->getBrackets();
+
+        return new Response($this->twig->render('@VivutioTouring/tours/prices.html.twig', [
+            'tour' => $tour,
+            'currency' => null === $sent ? $tour->getPriceCurrency() : (\is_string($sent['currency'] ?? null) ? $sent['currency'] : ''),
+            'brackets_typed' => null === $sent ? implode(', ', array_map(static fn (array $b): string => $b[0] === $b[1] ? (string) $b[0] : $b[0].'-'.$b[1], $brackets)) : (\is_string($sent['brackets'] ?? null) ? $sent['brackets'] : ''),
+            'brackets' => array_map(static fn (array $b): array => ['key' => $b[0].'-'.$b[1], 'label' => $b[0] === $b[1] ? $b[0].' people' : TourPriceService::size($b)], $brackets),
+            'tiers' => [] === $tour->getTiers() ? ['The tour'] : $tour->getTiers(),
+            'seasons' => $this->seasons->seasons(),
+            'card' => null === $sent || !\is_array($sent['rates'] ?? null) ? $this->prices->card($tour) : $sent['rates'],
+            'wrong' => $wrong,
+            'expired' => $expired,
+        ]), [] === $wrong && !$expired ? Response::HTTP_OK : Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
     private function to(Tour $tour): RedirectResponse
     {
         return new RedirectResponse($this->urls->generate(self::SHOW, ['uuid' => $tour->getUuid()]));
@@ -207,8 +257,14 @@ final readonly class TourController
             ++$counts[$tour->getStatus()->value];
         }
 
+        $from = [];
+        foreach ($all as $tour) {
+            $from[(string) $tour->getUuid()] = $this->prices->from($tour);
+        }
+
         return new Response($this->twig->render('@VivutioTouring/tours/index.html.twig', [
             'tours' => array_values(array_filter($all, static fn (Tour $tour): bool => null === $status || $tour->getStatus() === $status)),
+            'from' => $from,
             'total' => \count($all),
             'counts' => $counts,
             'statuses' => TourStatusEnum::cases(),
@@ -235,12 +291,15 @@ final readonly class TourController
             'stays' => $stays,
             'names' => $this->destinationNames(),
             'quote' => $this->quote($tour, $request),
+            'price' => $this->price($tour, $request),
             'asked' => [
                 'start' => $request->query->getString('start'),
                 'adults' => $request->query->getString('adults', '2'),
                 'children' => $request->query->getString('children', '0'),
                 'residency' => $request->query->getString('residency', ResidencyEnum::NonResident->value),
+                'tier' => $request->query->getString('tier', '0'),
             ],
+            'tier_names' => [] === $tour->getTiers() ? ['The tour'] : $tour->getTiers(),
             'residencies' => ResidencyEnum::cases(),
         ]));
     }
@@ -357,6 +416,24 @@ final readonly class TourController
         }
 
         return $names;
+    }
+
+    /**
+     * The tour's price for the party asked about, when a start day is asked.
+     *
+     * @return array{priced: bool, says: string}|null
+     */
+    private function price(Tour $tour, Request $request): ?array
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $request->query->getString('start'));
+        $adults = $request->query->getString('adults');
+        $children = $request->query->getString('children', '0');
+        $tier = $request->query->getString('tier', '0');
+        if (false === $date || !ctype_digit($adults) || !ctype_digit($children) || !ctype_digit($tier)) {
+            return null;
+        }
+
+        return $this->prices->quote($tour, $date, (int) $adults + (int) $children, (int) $tier);
     }
 
     /** The park fees for the party asked about, when a start day is asked. */

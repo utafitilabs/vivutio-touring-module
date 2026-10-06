@@ -7,7 +7,7 @@
 {% block here %}tours{% endblock %}
 
 {% block page %}
-<header class="page-head"><div><nav class="trail" aria-label="Where you are">Tours</nav><div class="title"><h1>Tours</h1><span class="about">The tours you sell, day by day</span></div></div></header>
+<header class="page-head"><div><nav class="trail" aria-label="Where you are">Tours</nav><div class="title"><h1>Tours</h1><span class="about">The tours you sell, day by day</span></div></div><div class="actions"><a class="button outline" href="{{ path('touring_seasons') }}">Seasons</a></div></header>
 
 <div class="stack">
     {% if door('tours.manage') %}
@@ -31,18 +31,19 @@
 
     <section class="panel list">
         <table class="table">
-            <thead><tr><th>Tour</th><th style="width:110px">Days</th><th style="width:120px">Group</th><th style="width:120px">Status</th><th style="width:90px"></th></tr></thead>
+            <thead><tr><th>Tour</th><th style="width:110px">Days</th><th style="width:120px">Group</th><th style="width:170px">Price</th><th style="width:120px">Status</th><th style="width:90px"></th></tr></thead>
             <tbody>
             {% for tour in tours %}
                 <tr data-tour="{{ tour.name }}">
                     <td><b>{{ tour.name }}</b>{% if tour.summary %}<small> {{ tour.summary }}</small>{% endif %}</td>
                     <td>{{ tour.days|length }} {{ tour.days|length == 1 ? 'day' : 'days' }}</td>
                     <td>{{ tour.groupMin }} to {{ tour.groupMax }}</td>
+                    <td data-from>{{ from[tour.uuid ~ ''] ?? '—' }}</td>
                     <td>{{ tours_.status_chip(tour.status) }}</td>
                     <td><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">Open</a></td>
                 </tr>
             {% else %}
-                <tr><td colspan="5"><div class="empty"><b>No tours here</b><span>A tour is an itinerary you sell, written day by day.</span></div></td></tr>
+                <tr><td colspan="6"><div class="empty"><b>No tours here</b><span>A tour is an itinerary you sell, written day by day.</span></div></td></tr>
             {% endfor %}
             </tbody>
         </table>

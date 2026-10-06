@@ -1,0 +1,54 @@
+{# A tour's prices, as drawn (vivutio-designs tours/configure-prices): the
+   currency and group sizes, then a grid a tier, the tour seasons down and the
+   sizes across, a price per person in each cell; an empty cell is not sold. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Prices of {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Configure</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
+</header>
+{{ tours_.tabs(tour, 'prices') }}
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+{%- set rate_wrong = wrong|filter((v, k) => k starts with 'rates[') -%}
+{% if rate_wrong is not empty %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ rate_wrong|first }}</span></div>{% endif %}
+
+<form class="stack" method="post" action="{{ path('touring_tour_prices', {uuid: tour.uuid}) }}" novalidate>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_prices') }}">
+    <section class="panel">
+        <header class="panel-head"><h2>Sold at</h2><p>The currency, and the group sizes priced apart</p></header>
+        <div class="grid-2">
+            <div class="field{{ wrong.currency is defined ? ' wrong' }}"><label for="prices-currency">Currency</label><input class="input" id="prices-currency" name="currency" value="{{ currency }}" maxlength="3" placeholder="USD">{{ tours_.hint('currency', wrong, null) }}</div>
+            <div class="field{{ wrong.brackets is defined ? ' wrong' }}"><label for="prices-brackets">Group sizes</label><input class="input" id="prices-brackets" name="brackets" value="{{ brackets_typed }}" placeholder="2, 3-4, 5-6">{{ tours_.hint('brackets', wrong, 'Each size the tour takes, from ' ~ tour.groupMin ~ ' to ' ~ tour.groupMax ~ ', in one bracket') }}</div>
+        </div>
+    </section>
+
+    {% if brackets is empty or seasons is empty %}
+        <section class="panel"><div class="empty"><b>Nothing to price yet</b><span>{{ seasons is empty ? 'Add the tour seasons first.' : 'Save the currency and group sizes, then the prices.' }}</span></div></section>
+    {% else %}
+        {% for t, tier in tiers %}
+            <section class="panel list" data-tier="{{ tier }}">
+                <header class="panel-head"><h2>{{ tier }}</h2><p>Per person, in {{ currency ?: tour.priceCurrency }}, for the group's size</p></header>
+                <table class="table">
+                    <thead><tr><th>Season</th>{% for bracket in brackets %}<th>{{ bracket.label }}</th>{% endfor %}</tr></thead>
+                    <tbody>
+                    {% for season in seasons %}
+                        <tr><td><div class="legend"><span><i data-tone="{{ season.tone.value }}"></i><b>{{ season.name }}</b></span></div></td>
+                        {% for bracket in brackets %}
+                            {%- set name = 'rates[' ~ t ~ '][' ~ season.uuid ~ '][' ~ bracket.key ~ ']' -%}
+                            <td{% if wrong[name] is defined %} class="wrong"{% endif %}><input class="input" name="{{ name }}" value="{% set cell = card[t][season.uuid ~ ''][bracket.key] ?? '' %}{{ cell matches '/^\\d+(\\.\\d+)?$/' ? cell|number_format(2) : cell }}" inputmode="decimal" aria-label="{{ tier }}, {{ season.name }}, {{ bracket.label }}"></td>
+                        {% endfor %}</tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </section>
+        {% endfor %}
+    {% endif %}
+    <section class="panel"><footer class="panel-foot"><span class="state">An empty cell is not sold</span><button type="reset" class="button quiet">Discard</button><button type="submit" class="button main">Save the prices</button></footer></section>
+</form>
+{% endblock %}

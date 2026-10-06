@@ -56,7 +56,7 @@ final class TheToursTest extends WebTestCase
         $tour = $this->addTour('7 Days Safari Tanzania');
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/configure');
-        self::assertSame(['Details', 'Itinerary'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
+        self::assertSame(['Details', 'Itinerary', 'Prices'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
         $page = $this->itinerary($tour);
         $this->browser->submit($page->selectButton('Add a day')->form(['tiers' => 'Silver, Gold']));
         $page = $this->browser->followRedirect();

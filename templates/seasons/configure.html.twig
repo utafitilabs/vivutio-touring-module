@@ -1,0 +1,41 @@
+{# A tour season: its name, how busy it is, the spans it runs every year, and
+   whether it is the season of every other day. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Configure {{ season.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_seasons') }}">Seasons</a> / {{ season.name }}</nav><div class="title"><h1>{{ season.name }}</h1></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_seasons') }}">{{ icons.icon('left', 15) }} Back to seasons</a></div>
+</header>
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+
+<form class="panel" method="post" action="{{ path('touring_season_configure', {uuid: season.uuid}) }}" novalidate>
+    <header class="panel-head"><h2>Season</h2><p>The same every year</p></header>
+    <input type="hidden" name="_token" value="{{ csrf_token('touring_season_configure') }}">
+    <div class="grid-2">
+        <div class="field{{ wrong.name is defined ? ' wrong' }}"><label for="season-name">Name</label><input class="input" id="season-name" name="name" value="{{ typed.name ?? '' }}" maxlength="60">{{ tours_.hint('name', wrong, null) }}</div>
+        <div class="field{{ wrong.tone is defined ? ' wrong' }}"><label for="season-tone">How busy</label><select class="select" id="season-tone" name="tone">{% for tone in tones %}<option value="{{ tone.value }}"{{ (tone.value ~ '') == (typed.tone ?? '') ? ' selected' }}>{{ tone.label }}</option>{% endfor %}</select>{{ tours_.hint('tone', wrong, null) }}</div>
+    </div>
+    <span class="label">Runs, every year</span>
+    {% for i, period in periods %}
+        <div class="grid-2">
+            {% for end, caption in {from: 'From', to: 'To'} %}
+                {%- set name = 'periods[' ~ i ~ '][' ~ end ~ ']' -%}
+                <div class="field{{ wrong[name] is defined ? ' wrong' }}"><label for="period-{{ i }}-{{ end }}">{{ caption }}</label><input class="input" id="period-{{ i }}-{{ end }}" name="{{ name }}" value="{{ period[end] ?? '' }}" placeholder="{{ end == 'from' ? '1 Apr' : '19 May' }}">{{ tours_.hint(name, wrong, null) }}</div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+    <label class="check"><input type="checkbox" name="rest" value="1"{{ (typed.rest ?? '') ? ' checked' }}> The season of every day no other season names</label>
+    <footer class="panel-foot"><span class="state">An empty span is left out; save to add another</span><button type="reset" class="button quiet">Discard</button><button type="submit" class="button main">Save the season</button></footer>
+</form>
+
+<section class="panel">
+    <header class="panel-head"><h2>Remove</h2><p>Tour prices in this season go with it</p></header>
+    <form class="action" method="post" action="{{ path('touring_season_remove', {uuid: season.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_season_remove') }}"><div><b>Remove {{ season.name }}</b><span>The tours' prices for it are removed too</span></div><button type="submit" class="button small danger">Remove</button></form>
+</section>
+{% endblock %}

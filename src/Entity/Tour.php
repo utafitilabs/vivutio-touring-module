@@ -66,6 +66,14 @@ class Tour
     #[ORM\Column(type: Types::JSON)]
     private array $tiers = [];
 
+    /** The currency its prices are in, "USD"; empty until its prices are set. */
+    #[ORM\Column(length: 3)]
+    private string $priceCurrency = '';
+
+    /** @var list<array{int, int}> the group sizes priced apart, each from min to max people */
+    #[ORM\Column(type: Types::JSON)]
+    private array $brackets = [];
+
     #[ORM\Column(length: 16, enumType: TourStatusEnum::class)]
     private TourStatusEnum $status = TourStatusEnum::Draft;
 
@@ -190,6 +198,30 @@ class Tour
     public function setTiers(array $tiers): static
     {
         $this->tiers = $tiers;
+
+        return $this;
+    }
+
+    public function getPriceCurrency(): string
+    {
+        return $this->priceCurrency;
+    }
+
+    /**
+     * @return list<array{int, int}>
+     */
+    public function getBrackets(): array
+    {
+        return $this->brackets;
+    }
+
+    /**
+     * @param list<array{int, int}> $brackets
+     */
+    public function setPricing(string $currency, array $brackets): static
+    {
+        $this->priceCurrency = $currency;
+        $this->brackets = $brackets;
 
         return $this;
     }

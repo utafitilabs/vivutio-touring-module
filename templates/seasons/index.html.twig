@@ -1,0 +1,61 @@
+{# The organization's tour seasons, as drawn (vivutio-designs tours/seasons):
+   a year coloured by season, the seasons with what they run, adding one. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% block title %}Tour seasons{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+{%- set may = door('tours.manage') -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / Seasons</nav><div class="title"><h1>Tour seasons</h1><span class="about">The seasons every tour is priced by, the same each year</span></div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_seasons', {year: year - 1}) }}">{{ year - 1 }}</a><a class="button outline" href="{{ path('touring_seasons', {year: year + 1}) }}">{{ year + 1 }}</a></div>
+</header>
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Try again.</span></div>{% endif %}
+
+<div class="stack">
+    <section class="panel">
+        <header class="panel-head"><h2>{{ year }}</h2><p><span class="legend">{% for season in seasons %}<span><i data-tone="{{ season.tone.value }}"></i>{{ season.name }}</span>{% endfor %}<span><i></i>No season</span></span></p></header>
+        <div class="months">
+            {% for month in calendar %}
+                <div class="month"><h3>{{ month.name }}</h3>
+                    <table class="days"><thead><tr>{% for day in ['M', 'T', 'W', 'T', 'F', 'S', 'S'] %}<th>{{ day }}</th>{% endfor %}</tr></thead><tbody>
+                    {% for week in month.weeks %}<tr>{% for day in week %}{% if day %}<td data-day="{{ day.date|date('Y-m-d') }}"{% if day.season %} data-season="{{ day.season.name }}" data-tone="{{ day.season.tone.value }}"{% endif %}><span>{{ day.date|date('j') }}</span></td>{% else %}<td></td>{% endif %}{% endfor %}</tr>{% endfor %}
+                    </tbody></table>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="panel list">
+        <table class="table">
+            <thead><tr><th>Season</th><th>Runs, every year</th>{% if may %}<th style="width:110px"></th>{% endif %}</tr></thead>
+            <tbody>
+            {% for season in seasons %}
+                <tr data-season="{{ season.name }}">
+                    <td><div class="legend"><span><i data-tone="{{ season.tone.value }}"></i><b>{{ season.name }}</b></span></div></td>
+                    <td data-periods>{{ runs[season.uuid ~ ''] }}</td>
+                    {% if may %}<td><a class="button outline" href="{{ path('touring_season_configure', {uuid: season.uuid}) }}">Configure</a></td>{% endif %}
+                </tr>
+            {% else %}
+                <tr><td colspan="3"><div class="empty"><b>No seasons yet</b><span>A tour is priced by the season of its first day: add the seasons you sell in.</span></div></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if may %}
+    <form class="panel" method="post" action="{{ path('touring_season_add') }}" novalidate>
+        <header class="panel-head"><h2>Add a season</h2><p>Its name and how busy it is; its spans are set next</p></header>
+        <input type="hidden" name="_token" value="{{ csrf_token('touring_season_add') }}">
+        <div class="grid-2">
+            <div class="field{{ wrong.name is defined ? ' wrong' }}"><label for="season-name">Name</label><input class="input" id="season-name" name="name" value="{{ typed.name }}" maxlength="60">{{ tours_.hint('name', wrong, 'Low, Mid, High') }}</div>
+            <div class="field{{ wrong.tone is defined ? ' wrong' }}"><label for="season-tone">How busy</label><select class="select" id="season-tone" name="tone">{% for tone in tones %}<option value="{{ tone.value }}"{{ (tone.value ~ '') == typed.tone ? ' selected' }}>{{ tone.label }}</option>{% endfor %}</select>{{ tours_.hint('tone', wrong, null) }}</div>
+        </div>
+        <footer class="panel-foot"><span class="state"></span><button type="submit" class="button main">Add the season</button></footer>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

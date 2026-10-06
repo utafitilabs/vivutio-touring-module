@@ -36,7 +36,7 @@
         "symfony/twig-bundle": "^8.0",
         "symfony/uid": "^8.0",
         "twig/twig": "^3.21",
-        "vivutio/vivutio": "^0.1.22"
+        "vivutio/vivutio": "^0.1.23"
     },
     "require-dev": {
         "doctrine/doctrine-migrations-bundle": "^4.0",
