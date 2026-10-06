@@ -1,0 +1,53 @@
+{# A departure's page, as drawn (vivutio-designs tours/departures, E): its
+   seats, whether it runs, the bookings on it; for whoever may manage tours,
+   closing or opening its sales and cancelling it. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+{% import '@VivutioTouring/bookings/_macros.html.twig' as bookings_ %}
+
+{% block title %}{{ departure.start|date('D j M Y') }} · {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+{%- set may = door('tours.manage') -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / {{ departure.start|date('D j M Y') }}</nav><div class="title"><h1>{{ departure.start|date('D j M Y') }}</h1>{{ tours_.standing_chip(standing) }}</div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('left', 15) }} Back to the tour</a></div>
+</header>
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Try again.</span></div>{% endif %}
+{% for said in wrong %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ said }}</span></div>{% endfor %}
+
+<div class="band">
+    <span class="f"><span class="k">Seats</span><span class="v" data-sold>{{ sold }}<em>of {{ departure.seats }} sold</em></span></span>
+    <span class="f"><span class="k">Runs with</span><span class="v">{{ departure.runsWith }}</span></span>
+    <span class="f"><span class="k">A seat</span><span class="v">{{ bookings_.money(tour.priceCurrency, departure.seat) }}<em>{{ tier }}</em></span></span>
+    <span class="f"><span class="k">Sold</span><span class="v" data-takings>{{ bookings_.money(tour.priceCurrency, takings) }}</span></span>
+</div>
+
+<div class="columns">
+    <div class="stack">
+        <section class="panel">
+            <header class="panel-head"><h2>Bookings</h2><p>The seats sold</p></header>
+            {% for booking in bookings %}
+                <div class="fact" data-booking><span>{% if door('tour_bookings.read') %}<a href="{{ path('touring_booking', {uuid: booking.uuid}) }}">{{ booking.reference }}</a>{% else %}{{ booking.reference }}{% endif %} &middot; <span data-guest>{{ booking.guest }}</span></span><b>{{ booking.people }} {{ booking.people == 1 ? 'seat' : 'seats' }} &middot; {{ bookings_.money(booking.currency, booking.total) }}</b></div>
+            {% else %}
+                <p class="hint">No seat sold yet.</p>
+            {% endfor %}
+        </section>
+    </div>
+    <aside class="aside stack">
+        {% if departure.cancelledAt %}<section class="panel small"><p class="hint">Cancelled on {{ departure.cancelledAt|date('j M Y') }}: {{ departure.cancellationReason }}</p></section>{% endif %}
+        {% if may and departure.status.value != 'cancelled' %}
+        <section class="panel small" data-actions>
+            <header class="panel-head"><h2>Change it</h2></header>
+            <form method="post" action="{{ path('touring_departure_sales', {uuid: departure.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_departure_sales') }}"><button type="submit" class="button outline">{{ departure.status.value == 'open' ? 'Close the sales' : 'Open the sales' }}</button></form>
+            <form method="post" action="{{ path('touring_departure_cancel', {uuid: departure.uuid}) }}"><input type="hidden" name="_token" value="{{ csrf_token('touring_departure_cancel') }}">
+                <div class="field"><label for="departure-reason">Why it is cancelled</label><input class="input" id="departure-reason" name="reason" maxlength="200"></div>
+                <button type="submit" class="button danger">Cancel the departure</button>
+            </form>
+        </section>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}

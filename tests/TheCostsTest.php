@@ -66,7 +66,7 @@ final class TheCostsTest extends WebTestCase
         $tour = $this->tour();
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/costs');
-        self::assertSame(['Details', 'Itinerary', 'Prices', 'Costs'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
+        self::assertSame(['Details', 'Itinerary', 'Prices', 'Costs', 'Departures'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
         $this->browser->submit($page->selectButton('Save the costs')->form([
             'margin' => '20',
             'costs[0][name]' => 'Vehicle', 'costs[0][per]' => 'group', 'costs[0][amount]' => '900',

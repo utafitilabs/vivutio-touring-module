@@ -172,6 +172,76 @@ Checks: `tours.manage`
 | Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/costs |
 | Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/costs |
 
+## touring_tour_departures: GET /tours/0199b1c0-0000-7000-8000-00000000a001/departures
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Departures of Probed tour · vivutio |
+| Super Admin | allowed: Departures of Probed tour · vivutio |
+
+## touring_tour_departures: POST /tours/0199b1c0-0000-7000-8000-00000000a001/departures
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/departures |
+| Super Admin | answered 422 |
+
+## touring_departure: GET /tours/departures/0199b1c0-0000-7000-8000-00000000a005
+
+Checks: `tours.read`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Sat 14 Nov 2099 · Probed tour · vivutio |
+| Super Admin | allowed: Sat 14 Nov 2099 · Probed tour · vivutio |
+
+## touring_departure_sales: POST /tours/departures/0199b1c0-0000-7000-8000-00000000a005/sales
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/departures/0199b1c0-0000-7000-8000-00000000a005 |
+| Super Admin | redirected to /tours/departures/0199b1c0-0000-7000-8000-00000000a005 |
+
+## touring_departure_cancel: POST /tours/departures/0199b1c0-0000-7000-8000-00000000a005/cancel
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/departures/0199b1c0-0000-7000-8000-00000000a005 |
+| Super Admin | answered 422 |
+
 ## touring_seasons: GET /tours/seasons
 
 Checks: `tours.read`

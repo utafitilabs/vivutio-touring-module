@@ -35,6 +35,7 @@ use Vivutio\Touring\Model\FeeQuote;
 use Vivutio\Touring\Model\TourPrice;
 use Vivutio\Touring\Repository\TourRepository;
 use Vivutio\Touring\Service\ParkFeeService;
+use Vivutio\Touring\Service\TourDepartureService;
 use Vivutio\Touring\Service\TourPriceService;
 use Vivutio\Touring\Service\TourSeasonService;
 use Vivutio\Touring\Service\TourService;
@@ -66,6 +67,7 @@ final readonly class TourController
         private ParkFeeService $fees,
         private TourPriceService $prices,
         private TourSeasonService $seasons,
+        private TourDepartureService $departures,
         private TourRepository $tours,
         private DestinationRepository $destinations,
         private CsrfTokenManagerInterface $tokens,
@@ -285,8 +287,15 @@ final readonly class TourController
             $stays[$day->getNumber()] = $this->service->staysOf($day);
         }
 
+        $departures = [];
+        foreach ($this->departures->upcoming($tour) as $departure) {
+            $sold = $this->departures->sold($departure);
+            $departures[] = ['departure' => $departure, 'left' => $departure->getSeats() - $sold, 'standing' => TourDepartureService::standing($departure, $sold)];
+        }
+
         return new Response($this->twig->render('@VivutioTouring/tours/show.html.twig', [
             'tour' => $tour,
+            'departures' => $departures,
             'schedule' => $this->service->schedule($tour),
             'titles' => $titles,
             'stays' => $stays,

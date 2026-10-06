@@ -1,0 +1,55 @@
+{# A tour's departures, as drawn (vivutio-designs tours/departures, A): each
+   day it leaves, its tier, its seats sold, a seat's price and whether it
+   runs; then adding one, or a run of them. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+{% import '@VivutioTouring/bookings/_macros.html.twig' as bookings_ %}
+
+{% block title %}Departures of {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Configure</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
+</header>
+{{ tours_.tabs(tour, 'departures') }}
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Try again.</span></div>{% endif %}
+
+<div class="stack">
+    <section class="panel list">
+        <table class="table">
+            <thead><tr><th>Leaves</th><th style="width:160px">Seats</th><th style="width:140px">A seat</th><th style="width:160px">Runs?</th><th style="width:90px"></th></tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr data-departure>
+                    <td><b>{{ row.departure.start|date('D j M Y') }}</b> &middot; {{ tiers[row.departure.tier] ?? 'The tour' }}</td>
+                    <td>{{ row.sold }} of {{ row.departure.seats }} sold</td>
+                    <td>{{ bookings_.money(tour.priceCurrency, row.departure.seat) }}</td>
+                    <td>{{ tours_.standing_chip(row.standing) }}</td>
+                    <td><a class="button outline" href="{{ path('touring_departure', {uuid: row.departure.uuid}) }}">Open</a></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="5"><div class="empty"><b>No departures</b><span>A tour that leaves on set days is sold by the seat: add its days below.</span></div></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <form class="panel" method="post" action="{{ path('touring_tour_departures', {uuid: tour.uuid}) }}" novalidate>
+        <header class="panel-head"><h2>Add departures</h2><p>One day, or every week or fortnight until a day</p></header>
+        <input type="hidden" name="_token" value="{{ csrf_token('touring_departures') }}">
+        <div class="grid-3">
+            <div class="field{{ wrong.first is defined ? ' wrong' }}"><label for="dep-first">First</label><input class="input" id="dep-first" name="first" type="date" value="{{ typed.first ?? '' }}">{{ tours_.hint('first', wrong, null) }}</div>
+            <div class="field{{ wrong.repeat is defined ? ' wrong' }}"><label for="dep-repeat">Repeat</label><select class="select" id="dep-repeat" name="repeat">{% for value, label in {once: 'Once', week: 'Every week', fortnight: 'Every other week'} %}<option value="{{ value }}"{{ value == (typed.repeat ?? 'once') ? ' selected' }}>{{ label }}</option>{% endfor %}</select>{{ tours_.hint('repeat', wrong, null) }}</div>
+            <div class="field{{ wrong.until is defined ? ' wrong' }}"><label for="dep-until">Until</label><input class="input" id="dep-until" name="until" type="date" value="{{ typed.until ?? '' }}">{{ tours_.hint('until', wrong, null) }}</div>
+            <div class="field{{ wrong.tier is defined ? ' wrong' }}"><label for="dep-tier">Tier</label><select class="select" id="dep-tier" name="tier">{% for t, tier in tiers %}<option value="{{ t }}"{{ (t ~ '') == (typed.tier ?? '0') ? ' selected' }}>{{ tier }}</option>{% endfor %}</select>{{ tours_.hint('tier', wrong, null) }}</div>
+            <div class="field{{ wrong.seats is defined ? ' wrong' }}"><label for="dep-seats">Seats</label><input class="input" id="dep-seats" name="seats" value="{{ typed.seats ?? '' }}" inputmode="numeric">{{ tours_.hint('seats', wrong, null) }}</div>
+            <div class="field{{ wrong.runs_with is defined ? ' wrong' }}"><label for="dep-runs">Runs with</label><input class="input" id="dep-runs" name="runs_with" value="{{ typed.runs_with ?? '' }}" inputmode="numeric">{{ tours_.hint('runs_with', wrong, null) }}</div>
+            <div class="field{{ wrong.seat is defined ? ' wrong' }}"><label for="dep-seat">A seat, {{ tour.priceCurrency ?: 'the tour’s currency' }}</label><input class="input" id="dep-seat" name="seat" value="{{ typed.seat ?? '' }}" inputmode="decimal" placeholder="From the prices">{{ tours_.hint('seat', wrong, null) }}</div>
+        </div>
+        <footer class="panel-foot"><span class="state">Unset, a seat costs the tour’s price for its season and tier, for the party it runs with</span><button type="submit" class="button main">Add the departures</button></footer>
+    </form>
+</div>
+{% endblock %}

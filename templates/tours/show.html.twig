@@ -23,6 +23,25 @@
 
 <div class="columns">
     <div class="stack">
+        {% if departures %}
+        <section class="panel list" data-departures>
+            <header class="panel-head"><h2>Departures</h2><p>Sold by the seat</p></header>
+            <table class="table">
+                <thead><tr><th>Leaves</th><th style="width:110px">Seats</th><th style="width:140px">A seat</th><th style="width:150px">Runs?</th><th style="width:130px"></th></tr></thead>
+                <tbody>
+                {% for row in departures %}
+                    <tr data-departure>
+                        <td><a href="{{ path('touring_departure', {uuid: row.departure.uuid}) }}"><b>{{ row.departure.start|date('D j M Y') }}</b></a></td>
+                        <td>{{ row.left }} left</td>
+                        <td>{{ tour.priceCurrency }} {{ (row.departure.seat / 100)|number_format(2) }}</td>
+                        <td>{{ tours_.standing_chip(row.standing) }}</td>
+                        <td>{% if row.left > 0 and row.departure.status.value == 'open' and tour.status.value == 'open' and door('tour_bookings.record') %}<a class="button outline" href="{{ path('touring_booking_new', {departure: row.departure.uuid}) }}">Book seats</a>{% endif %}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </section>
+        {% endif %}
         <section class="panel">
             <header class="panel-head"><h2>Itinerary</h2><p>Each stay in order, and where its nights are spent</p>{% if may %}<a class="button small outline" href="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}">Edit the itinerary</a>{% endif %}</header>
             <div class="stack">

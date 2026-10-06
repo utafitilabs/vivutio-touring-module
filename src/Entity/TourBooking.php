@@ -24,7 +24,8 @@ use Vivutio\Touring\Repository\TourBookingRepository;
  * its tier, and the price it was sold at, kept as it was when it was made (the
  * tier and season by name, the group size, the price a person, the partner's
  * discount and the total, in cents), so a later change of the tour's prices or
- * the partner's terms never alters it.
+ * the partner's terms never alters it. A booking on a departure takes a seat
+ * for each of its party, at the departure's seat price.
  *
  * It holds state and nothing else.
  */
@@ -47,6 +48,11 @@ class TourBooking
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private Tour $tour;
+
+    /** The departure it takes seats on, when the tour leaves on set days. */
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?TourDeparture $departure = null;
 
     /** "NC-0001": the tour's initials and a count. */
     #[ORM\Column(length: 16, unique: true)]
@@ -164,6 +170,18 @@ class TourBooking
     public function getTour(): Tour
     {
         return $this->tour;
+    }
+
+    public function getDeparture(): ?TourDeparture
+    {
+        return $this->departure;
+    }
+
+    public function setDeparture(?TourDeparture $departure): static
+    {
+        $this->departure = $departure;
+
+        return $this;
     }
 
     public function getReference(): string

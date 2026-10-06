@@ -21,9 +21,11 @@ use Vivutio\Touring\Controller\SeasonController;
 use Vivutio\Touring\Controller\TourBookingController;
 use Vivutio\Touring\Controller\TourController;
 use Vivutio\Touring\Controller\TourCostController;
+use Vivutio\Touring\Controller\TourDepartureController;
 use Vivutio\Touring\Entity\Tour;
 use Vivutio\Touring\Entity\TourBooking;
 use Vivutio\Touring\Entity\TourDay;
+use Vivutio\Touring\Entity\TourDeparture;
 use Vivutio\Touring\Entity\TourSeason;
 use Vivutio\Touring\Enum\SeasonToneEnum;
 use Vivutio\Touring\Tests\Application\Kernel;
@@ -43,6 +45,8 @@ final class TouringAuthorityTest extends AuthorityTestCase
     private const string SEASON = '/tours/seasons/'.self::SEASON_UUID;
     private const string BOOKING_UUID = '0199b1c0-0000-7000-8000-00000000a004';
     private const string BOOKING = '/tours/bookings/'.self::BOOKING_UUID;
+    private const string DEPARTURE_UUID = '0199b1c0-0000-7000-8000-00000000a005';
+    private const string DEPARTURE = '/tours/departures/'.self::DEPARTURE_UUID;
 
     protected static function getKernelClass(): string
     {
@@ -66,6 +70,12 @@ final class TouringAuthorityTest extends AuthorityTestCase
             new Probe(TourCostController::COSTS, 'GET', self::TOUR.'/costs'),
             new Probe(TourCostController::COSTS, 'POST', self::TOUR.'/costs', ['margin' => '20', 'costs' => [['name' => 'Vehicle', 'per' => 'group', 'amount' => '900']]], formAt: self::TOUR.'/costs'),
             new Probe(TourCostController::TAKE, 'POST', self::TOUR.'/costs/take', ['tier' => '0'], formAt: self::TOUR.'/costs'),
+            new Probe(TourDepartureController::DEPARTURES, 'GET', self::TOUR.'/departures'),
+            new Probe(TourDepartureController::DEPARTURES, 'POST', self::TOUR.'/departures', ['first' => '2099-11-07', 'repeat' => 'once', 'until' => '', 'tier' => '0', 'seats' => '6', 'runs_with' => '2', 'seat' => '1240'], formAt: self::TOUR.'/departures'),
+            new Probe(TourDepartureController::DEPARTURE, 'GET', self::DEPARTURE),
+            new Probe(TourDepartureController::SALES, 'POST', self::DEPARTURE.'/sales', formAt: self::DEPARTURE),
+            // Cancelled by the first allowed; the next finds it cancelled already.
+            new Probe(TourDepartureController::CANCEL, 'POST', self::DEPARTURE.'/cancel', ['reason' => 'Probed'], formAt: self::DEPARTURE),
             new Probe(SeasonController::SEASONS, 'GET', '/tours/seasons'),
             new Probe(SeasonController::CONFIGURE, 'GET', self::SEASON.'/configure'),
             new Probe(SeasonController::CONFIGURE, 'POST', self::SEASON.'/configure', ['name' => 'Probed season', 'tone' => '2', 'rest' => '1'], formAt: self::SEASON.'/configure'),
@@ -110,5 +120,6 @@ final class TouringAuthorityTest extends AuthorityTestCase
             ->setParty(2, 0, 'non_resident')
             ->setPrice(0, 'The tour', 'Probed season', '2 people', 'USD', 100000, 200000, 200000)
             ->setHeldUntil(new \DateTimeImmutable('2027-01-01')));
+        $entityManager->persist((new TourDeparture($tour, new \DateTimeImmutable('2099-11-14'), 0, 6, 2, 124000))->setUuid(Uuid::fromString(self::DEPARTURE_UUID)));
     }
 }

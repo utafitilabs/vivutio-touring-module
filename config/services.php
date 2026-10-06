@@ -25,14 +25,17 @@ use Vivutio\Touring\Controller\SeasonController;
 use Vivutio\Touring\Controller\TourBookingController;
 use Vivutio\Touring\Controller\TourController;
 use Vivutio\Touring\Controller\TourCostController;
+use Vivutio\Touring\Controller\TourDepartureController;
 use Vivutio\Touring\Repository\TourBookingRepository;
 use Vivutio\Touring\Repository\TourDayRepository;
+use Vivutio\Touring\Repository\TourDepartureRepository;
 use Vivutio\Touring\Repository\TourRateRepository;
 use Vivutio\Touring\Repository\TourRepository;
 use Vivutio\Touring\Repository\TourSeasonRepository;
 use Vivutio\Touring\Service\ParkFeeService;
 use Vivutio\Touring\Service\TourBookingService;
 use Vivutio\Touring\Service\TourCostService;
+use Vivutio\Touring\Service\TourDepartureService;
 use Vivutio\Touring\Service\TourPriceService;
 use Vivutio\Touring\Service\TourSeasonService;
 use Vivutio\Touring\Service\TourService;
@@ -67,6 +70,12 @@ return static function (ContainerConfigurator $container): void {
     $services->set(TourBookingRepository::class)
         ->args([service('doctrine')])
         ->tag('doctrine.repository_service');
+    $services->set(TourDepartureRepository::class)
+        ->args([service('doctrine')])
+        ->tag('doctrine.repository_service');
+
+    $services->set('touring.departures', TourDepartureService::class)
+        ->args([service('doctrine.orm.entity_manager'), service('clock'), service(TourDepartureRepository::class), service(TourBookingRepository::class), service('touring.prices')]);
 
     $services->set('touring.seasons', TourSeasonService::class)
         ->args([service('doctrine.orm.entity_manager'), service(TourSeasonRepository::class)]);
@@ -92,6 +101,7 @@ return static function (ContainerConfigurator $container): void {
             service('touring.park_fees'),
             service('touring.prices'),
             service('touring.seasons'),
+            service('touring.departures'),
             service(TourRepository::class),
             service(DestinationRepository::class),
             service('security.csrf.token_manager'),
@@ -114,9 +124,11 @@ return static function (ContainerConfigurator $container): void {
             service('touring.prices'),
             service('touring.seasons'),
             service(PartnerDirectoryInterface::class),
+            service(TourDepartureRepository::class),
+            service('touring.departures'),
         ]);
     $services->set('touring.controller.bookings', TourBookingController::class)
-        ->args([service('twig'), service('touring.bookings'), service('touring.tours'), service('clock'), service('security.csrf.token_manager'), service('router')])
+        ->args([service('twig'), service('touring.bookings'), service('touring.tours'), service('touring.departures'), service('clock'), service('security.csrf.token_manager'), service('router')])
         ->public();
     $services->alias(TourBookingController::class, 'touring.controller.bookings')->public();
 
@@ -135,4 +147,9 @@ return static function (ContainerConfigurator $container): void {
         ->args([service('twig'), service('touring.costs'), service('security.csrf.token_manager'), service('router')])
         ->public();
     $services->alias(TourCostController::class, 'touring.controller.costs')->public();
+
+    $services->set('touring.controller.departures', TourDepartureController::class)
+        ->args([service('twig'), service('touring.departures'), service('touring.tours'), service('security.csrf.token_manager'), service('router')])
+        ->public();
+    $services->alias(TourDepartureController::class, 'touring.controller.departures')->public();
 };

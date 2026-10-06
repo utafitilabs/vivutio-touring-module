@@ -21,11 +21,14 @@ use Vivutio\Contracts\Partner\PartnerDirectoryInterface;
 use Vivutio\Contracts\Partner\PartnerInterface;
 use Vivutio\Touring\Entity\Tour;
 use Vivutio\Touring\Entity\TourBooking;
+use Vivutio\Touring\Entity\TourDeparture;
+use Vivutio\Touring\Enum\DepartureStatusEnum;
 use Vivutio\Touring\Enum\TourBookingStatusEnum;
 use Vivutio\Touring\Enum\TourStatusEnum;
 use Vivutio\Touring\Exception\InvalidTourException;
 use Vivutio\Touring\Model\TourPrice;
 use Vivutio\Touring\Repository\TourBookingRepository;
+use Vivutio\Touring\Repository\TourDepartureRepository;
 use Vivutio\Touring\Repository\TourRepository;
 
 /**
@@ -40,7 +43,7 @@ final readonly class TourBookingService
     /** The kinds of partner that sell a tour on. */
     public const array SELLING_KINDS = ['travel_agent', 'tour_operator'];
 
-    public const array FIELDS = ['tour', 'start', 'adults', 'children', 'residency', 'tier', 'guest', 'partner', 'booked_by', 'their_reference', 'status', 'held_until', 'notes'];
+    public const array FIELDS = ['departure', 'tour', 'start', 'adults', 'children', 'residency', 'tier', 'guest', 'partner', 'booked_by', 'their_reference', 'status', 'held_until', 'notes'];
 
     public function __construct(
         private EntityManagerInterface $entityManager,
@@ -50,6 +53,8 @@ final readonly class TourBookingService
         private TourPriceService $prices,
         private TourSeasonService $seasons,
         private PartnerDirectoryInterface $partners,
+        private TourDepartureRepository $departures,
+        private TourDepartureService $seats,
     ) {
     }
 
@@ -126,6 +131,17 @@ final readonly class TourBookingService
      */
     public function price(array $typed): ?array
     {
+        $departure = $this->departureOf($typed['departure']);
+        if (null !== $departure) {
+            $price = $this->seatPrice($departure, ctype_digit($typed['adults']) && ctype_digit($typed['children']) ? (int) $typed['adults'] + (int) $typed['children'] : 0);
+            $partner = '' === $typed['partner'] ? null : $this->sellingPartner($typed['partner']);
+            $after = null;
+            if ($price->people > 0 && null !== $partner && (float) $partner->getDiscount() > 0) {
+                $after = \sprintf('%s’s %s%% off makes it %s.', $partner->getName(), self::share($partner->getDiscount()), TourPriceService::money($price->currency, self::discounted($price->gross(), $partner->getDiscount())));
+            }
+
+            return ['price' => $price, 'after' => $after];
+        }
         $tour = $this->tourOf($typed['tour']);
         $start = self::day($typed['start']);
         if (null === $tour || null === $start || !ctype_digit($typed['adults']) || !ctype_digit($typed['children']) || !ctype_digit($typed['tier'])) {
@@ -149,8 +165,18 @@ final readonly class TourBookingService
     public function record(array $typed): TourBooking
     {
         $today = $this->clock->now()->setTime(0, 0);
-        $tour = $this->tourOf($typed['tour']) ?? throw new InvalidTourException('tour', 'Choose a tour on sale.');
-        $start = self::day($typed['start']);
+        $departure = null;
+        if ('' !== $typed['departure']) {
+            $departure = $this->departureOf($typed['departure']);
+            if (null === $departure || $departure->getStart() < $today || DepartureStatusEnum::Cancelled === $departure->getStatus()) {
+                throw new InvalidTourException('departure', 'Choose a departure still to leave.');
+            }
+            if (DepartureStatusEnum::Closed === $departure->getStatus()) {
+                throw new InvalidTourException('departure', 'Its sales are closed.');
+            }
+        }
+        $tour = $departure?->getTour() ?? $this->tourOf($typed['tour']) ?? throw new InvalidTourException('tour', 'Choose a tour on sale.');
+        $start = $departure?->getStart() ?? self::day($typed['start']);
         if (null === $start || $start < $today) {
             throw new InvalidTourException('start', 'The day the tour starts, today or later.');
         }
@@ -159,16 +185,21 @@ final readonly class TourBookingService
         }
         $adults = (int) $typed['adults'];
         $children = (int) $typed['children'];
-        if ($adults + $children < $tour->getGroupMin() || $adults + $children > $tour->getGroupMax()) {
+        if (null !== $departure) {
+            $left = $departure->getSeats() - $this->seats->sold($departure);
+            if ($adults + $children > $left) {
+                throw new InvalidTourException('adults', \sprintf('The departure has %d %s left.', $left, 1 === $left ? 'seat' : 'seats'));
+            }
+        } elseif ($adults + $children < $tour->getGroupMin() || $adults + $children > $tour->getGroupMax()) {
             throw new InvalidTourException('adults', \sprintf('The tour takes %d to %d people.', $tour->getGroupMin(), $tour->getGroupMax()));
         }
         $residency = ResidencyEnum::tryFrom($typed['residency']) ?? throw new InvalidTourException('residency', 'Choose the party’s residency.');
         $tiers = max(1, \count($tour->getTiers()));
-        if (!ctype_digit($typed['tier']) || (int) $typed['tier'] >= $tiers) {
+        $tier = $departure?->getTier() ?? (ctype_digit($typed['tier']) ? (int) $typed['tier'] : -1);
+        if ($tier < 0 || $tier >= $tiers) {
             throw new InvalidTourException('tier', 'Choose a tier the tour is sold in.');
         }
-        $tier = (int) $typed['tier'];
-        $price = $this->prices->quote($tour, $start, $adults + $children, $tier);
+        $price = null === $departure ? $this->prices->quote($tour, $start, $adults + $children, $tier) : $this->seatPrice($departure, $adults + $children);
         if (!$price->priced) {
             throw new InvalidTourException(match (true) {
                 '' === $tour->getPriceCurrency() => 'tour', null === $this->seasons->seasonOn($start) => 'start', default => 'tier',
@@ -207,7 +238,8 @@ final readonly class TourBookingService
             ->setNotes(self::optional($typed['notes']))
             ->setStatus($status)
             ->setHeldUntil($heldUntil)
-            ->setPrice($tier, $price->tier, $price->season, $price->size, $price->currency, $price->each, $gross, null === $partner ? $gross : self::discounted($gross, $partner->getDiscount()));
+            ->setPrice($tier, $price->tier, $price->season, $price->size, $price->currency, $price->each, $gross, null === $partner ? $gross : self::discounted($gross, $partner->getDiscount()))
+            ->setDeparture($departure);
         if (null !== $partner) {
             $booking->setPartnerTerms($partner->getPartnerId(), $partner->getDiscount(), $partner->getCreditDays());
         }
@@ -261,6 +293,36 @@ final readonly class TourBookingService
     public static function discounted(int $gross, string $discount): int
     {
         return $gross - (int) round($gross * (float) $discount / 100);
+    }
+
+    /**
+     * The departures of a tour still to leave and not cancelled, its sales
+     * closed or not.
+     *
+     * @return list<TourDeparture>
+     */
+    public function departuresOf(Tour $tour): array
+    {
+        return $this->seats->upcoming($tour);
+    }
+
+    public function departureOf(string $uuid): ?TourDeparture
+    {
+        return Uuid::isValid($uuid) ? $this->departures->findOneBy(['uuid' => Uuid::fromString($uuid)]) : null;
+    }
+
+    /** A party's price on a departure: a seat each, at the departure's price; the seat alone for no party. */
+    private function seatPrice(TourDeparture $departure, int $people): TourPrice
+    {
+        $tour = $departure->getTour();
+        $tierName = $tour->getTiers()[$departure->getTier()] ?? 'The tour';
+        $currency = $tour->getPriceCurrency();
+        $says = \sprintf('%s · the departure of %s: %s a seat', $tierName, $departure->getStart()->format('j M Y'), TourPriceService::money($currency, $departure->getSeat()));
+        if ($people > 0) {
+            $says .= \sprintf(', %s for %d', TourPriceService::money($currency, $departure->getSeat() * $people), $people);
+        }
+
+        return new TourPrice(true, $says, $tierName, $this->seasons->seasonOn($departure->getStart())?->getName() ?? '', \sprintf('%d %s', $people, 1 === $people ? 'seat' : 'seats'), $currency, $departure->getSeat(), $people);
     }
 
     private function tourOf(string $uuid): ?Tour

@@ -1,6 +1,8 @@
 {# A new tour booking, as drawn (vivutio-designs tours/bookings/new): the tour,
    the day and the party, priced before it is recorded; who it is for and the
-   partner it comes through; held to a day or confirmed. #}
+   partner it comes through; held to a day or confirmed. On a departure, the
+   departure stands for the tour, its day and its tier, and the party takes
+   seats. #}
 {% extends '@Shell/page.html.twig' %}
 {% import '@Shell/_icons.html.twig' as icons %}
 {% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
@@ -18,12 +20,19 @@
 <form class="panel" method="post" action="{{ path('touring_booking_new') }}" novalidate>
     <header class="panel-head"><h2>Booking</h2><p>Priced by the tour’s prices when it is recorded, and kept</p></header>
     <input type="hidden" name="_token" value="{{ csrf_token('touring_booking_new') }}">
+    {% if departure %}
+    <span class="label">The departure</span>
+    <div class="grid-3">
+        <div class="field{{ wrong.departure is defined ? ' wrong' }}"><label for="booking-departure">{{ departure.tour.name }}</label><select class="select" id="booking-departure" name="departure">{% for row in departures %}<option value="{{ row.departure.uuid }}"{{ (row.departure.uuid ~ '') == typed.departure ? ' selected' }}>{{ row.departure.start|date('D j M Y') }} · {{ row.departure.status.value == 'closed' ? 'sales closed' : row.left ~ ' left' }}</option>{% endfor %}</select>{{ tours_.hint('departure', wrong, 'Sold by the seat, a seat for each of the party') }}</div>
+    </div>
+    {% else %}
     <span class="label">The tour</span>
     <div class="grid-3">
         <div class="field{{ wrong.tour is defined ? ' wrong' }}"><label for="booking-tour">Tour</label><select class="select" id="booking-tour" name="tour">{% for tour in tours %}<option value="{{ tour.uuid }}"{{ (tour.uuid ~ '') == typed.tour ? ' selected' }}>{{ tour.name }}</option>{% else %}<option value="">No tour is on sale</option>{% endfor %}</select>{{ tours_.hint('tour', wrong, null) }}</div>
         <div class="field{{ wrong.start is defined ? ' wrong' }}"><label for="booking-start">Starting</label><input class="input" id="booking-start" name="start" type="date" value="{{ typed.start }}" min="{{ today|date('Y-m-d') }}">{{ tours_.hint('start', wrong, null) }}</div>
         <div class="field{{ wrong.tier is defined ? ' wrong' }}"><label for="booking-tier">Tier</label><select class="select" id="booking-tier" name="tier">{% for t, tier in tiers %}<option value="{{ t }}"{{ (t ~ '') == typed.tier ? ' selected' }}>{{ tier }}</option>{% endfor %}</select>{{ tours_.hint('tier', wrong, null) }}</div>
     </div>
+    {% endif %}
     <div class="grid-3">
         <div class="field{{ wrong.adults is defined ? ' wrong' }}"><label for="booking-adults">Adults</label><input class="input" id="booking-adults" name="adults" value="{{ typed.adults }}" inputmode="numeric">{{ tours_.hint('adults', wrong, null) }}</div>
         <div class="field{{ wrong.children is defined ? ' wrong' }}"><label for="booking-children">Children</label><input class="input" id="booking-children" name="children" value="{{ typed.children }}" inputmode="numeric">{{ tours_.hint('children', wrong, null) }}</div>

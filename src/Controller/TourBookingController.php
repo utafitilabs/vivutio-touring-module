@@ -30,6 +30,7 @@ use Vivutio\Touring\Entity\TourBooking;
 use Vivutio\Touring\Enum\TourBookingStatusEnum;
 use Vivutio\Touring\Exception\InvalidTourException;
 use Vivutio\Touring\Service\TourBookingService;
+use Vivutio\Touring\Service\TourDepartureService;
 use Vivutio\Touring\Service\TourService;
 
 /**
@@ -54,6 +55,7 @@ final readonly class TourBookingController
         private Environment $twig,
         private TourBookingService $bookings,
         private TourService $tours,
+        private TourDepartureService $departures,
         private ClockInterface $clock,
         private CsrfTokenManagerInterface $tokens,
         private UrlGeneratorInterface $urls,
@@ -173,8 +175,18 @@ final readonly class TourBookingController
             $tiers[(string) $tour->getUuid()] = [] === $tour->getTiers() ? ['The tour'] : $tour->getTiers();
         }
 
+        $departure = $this->bookings->departureOf($typed['departure']);
+        $departures = [];
+        if (null !== $departure) {
+            foreach ($this->bookings->departuresOf($departure->getTour()) as $other) {
+                $departures[] = ['departure' => $other, 'left' => $other->getSeats() - $this->departures->sold($other)];
+            }
+        }
+
         return new Response($this->twig->render('@VivutioTouring/bookings/new.html.twig', [
             'typed' => $typed,
+            'departure' => $departure,
+            'departures' => $departures,
             'tours' => $tours,
             'tiers' => $tiers[$typed['tour']] ?? ($tiers[array_key_first($tiers) ?? ''] ?? ['The tour']),
             'partners' => $this->bookings->partners(),
