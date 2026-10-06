@@ -87,7 +87,7 @@ final class ThePricesTest extends WebTestCase
         $tour = $this->tour();
 
         $page = $this->browser->request('GET', '/tours/'.$tour->getUuid().'/prices');
-        self::assertSame(['Details', 'Itinerary', 'Prices'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
+        self::assertSame(['Details', 'Itinerary', 'Prices', 'Costs'], $page->filter('nav.tabs a')->each(static fn (Crawler $tab): string => trim($tab->text())));
         $this->browser->submit($page->selectButton('Save the prices')->form(['currency' => 'USD', 'brackets' => '2, 3-4, 5-6']));
         self::assertResponseRedirects('/tours/'.$tour->getUuid().'/prices');
 

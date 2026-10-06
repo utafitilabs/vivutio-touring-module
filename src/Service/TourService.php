@@ -419,7 +419,7 @@ final readonly class TourService
      * @throws InvalidTourException
      */
     /** The name of a place a night is spent at, kept as a kind and an id. */
-    private function nameOf(string $stay): string
+    public function nameOf(string $stay): string
     {
         [$kind, $id] = array_pad(explode(':', $stay, 2), 2, '');
 

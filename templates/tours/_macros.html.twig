@@ -11,7 +11,7 @@
 <span class="chip{{ status.value == 'open' ? ' ok' : '' }}">{{ status.label }}</span>
 {%- endmacro %}
 
-{# Configure's tabs: the tour's details, its itinerary and its prices. #}
+{# Configure's tabs: the tour's details, its itinerary, its prices and its costs. #}
 {% macro tabs(tour, current) %}
-<nav class="tabs" aria-label="Configure"><a href="{{ path('touring_tour_configure', {uuid: tour.uuid}) }}"{{ current == 'details' ? ' aria-current="page"' }}>Details</a><a href="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}"{{ current == 'itinerary' ? ' aria-current="page"' }}>Itinerary</a><a href="{{ path('touring_tour_prices', {uuid: tour.uuid}) }}"{{ current == 'prices' ? ' aria-current="page"' }}>Prices</a></nav>
+<nav class="tabs" aria-label="Configure"><a href="{{ path('touring_tour_configure', {uuid: tour.uuid}) }}"{{ current == 'details' ? ' aria-current="page"' }}>Details</a><a href="{{ path('touring_tour_itinerary', {uuid: tour.uuid}) }}"{{ current == 'itinerary' ? ' aria-current="page"' }}>Itinerary</a><a href="{{ path('touring_tour_prices', {uuid: tour.uuid}) }}"{{ current == 'prices' ? ' aria-current="page"' }}>Prices</a><a href="{{ path('touring_tour_costs', {uuid: tour.uuid}) }}"{{ current == 'costs' ? ' aria-current="page"' }}>Costs</a></nav>
 {% endmacro %}

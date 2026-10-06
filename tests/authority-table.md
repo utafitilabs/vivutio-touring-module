@@ -130,6 +130,48 @@ Checks: `tours.manage`
 | Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/prices |
 | Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/prices |
 
+## touring_tour_costs: GET /tours/0199b1c0-0000-7000-8000-00000000a001/costs
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | allowed: Costs of Probed tour · vivutio |
+| Super Admin | allowed: Costs of Probed tour · vivutio |
+
+## touring_tour_costs: POST /tours/0199b1c0-0000-7000-8000-00000000a001/costs
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/costs |
+| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/costs |
+
+## touring_tour_costs_take: POST /tours/0199b1c0-0000-7000-8000-00000000a001/costs/take
+
+Checks: `tours.manage`
+
+| Person | Outcome |
+|---|---|
+| signed out | sent to sign-in |
+| deactivated while signed in | sent to sign-in |
+| Staff, no position | refused |
+| Staff holding the pair | refused |
+| Staff holding all but the pair | refused |
+| Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/costs |
+| Super Admin | redirected to /tours/0199b1c0-0000-7000-8000-00000000a001/costs |
+
 ## touring_seasons: GET /tours/seasons
 
 Checks: `tours.read`

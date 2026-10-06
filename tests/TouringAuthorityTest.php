@@ -20,6 +20,7 @@ use Vivutio\Bundle\IdentityBundle\Test\Probe;
 use Vivutio\Touring\Controller\SeasonController;
 use Vivutio\Touring\Controller\TourBookingController;
 use Vivutio\Touring\Controller\TourController;
+use Vivutio\Touring\Controller\TourCostController;
 use Vivutio\Touring\Entity\Tour;
 use Vivutio\Touring\Entity\TourBooking;
 use Vivutio\Touring\Entity\TourDay;
@@ -62,6 +63,9 @@ final class TouringAuthorityTest extends AuthorityTestCase
             new Probe(TourController::ITINERARY, 'POST', self::TOUR.'/itinerary', $itinerary, formAt: self::TOUR.'/itinerary'),
             new Probe(TourController::PRICES, 'GET', self::TOUR.'/prices'),
             new Probe(TourController::PRICES, 'POST', self::TOUR.'/prices', ['currency' => 'USD', 'brackets' => '1-6'], formAt: self::TOUR.'/prices'),
+            new Probe(TourCostController::COSTS, 'GET', self::TOUR.'/costs'),
+            new Probe(TourCostController::COSTS, 'POST', self::TOUR.'/costs', ['margin' => '20', 'costs' => [['name' => 'Vehicle', 'per' => 'group', 'amount' => '900']]], formAt: self::TOUR.'/costs'),
+            new Probe(TourCostController::TAKE, 'POST', self::TOUR.'/costs/take', ['tier' => '0'], formAt: self::TOUR.'/costs'),
             new Probe(SeasonController::SEASONS, 'GET', '/tours/seasons'),
             new Probe(SeasonController::CONFIGURE, 'GET', self::SEASON.'/configure'),
             new Probe(SeasonController::CONFIGURE, 'POST', self::SEASON.'/configure', ['name' => 'Probed season', 'tone' => '2', 'rest' => '1'], formAt: self::SEASON.'/configure'),

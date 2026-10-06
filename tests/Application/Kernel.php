@@ -23,6 +23,8 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Vivutio\Bundle\IdentityBundle\Controller\SecurityController;
 use Vivutio\Bundle\IdentityBundle\Entity\User;
 use Vivutio\Contracts\Place\PlaceSourceInterface;
+use Vivutio\Contracts\Stay\NightCostSourceInterface;
+use Vivutio\Touring\Tests\Application\StandIn\StandInNightCosts;
 use Vivutio\Touring\Tests\Application\StandIn\StandInPlaces;
 
 /**
@@ -112,5 +114,6 @@ final class Kernel extends BaseKernel
 
         // A place a package offers, played by a stand-in.
         $services->set('test.stand_in.places', StandInPlaces::class)->tag(PlaceSourceInterface::TAG);
+        $services->set('test.stand_in.night_costs', StandInNightCosts::class)->tag(NightCostSourceInterface::TAG);
     }
 }

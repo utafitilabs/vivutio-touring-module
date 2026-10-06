@@ -74,6 +74,14 @@ class Tour
     #[ORM\Column(type: Types::JSON)]
     private array $brackets = [];
 
+    /** The margin wanted on its prices, a share to the cent: "20.00". */
+    #[ORM\Column(type: Types::DECIMAL, precision: 5, scale: 2)]
+    private string $margin = '0.00';
+
+    /** @var list<array{name: string, per: string, amount: int}> what the lodges and parks do not charge, in cents; per "group" or "person" */
+    #[ORM\Column(type: Types::JSON)]
+    private array $costs = [];
+
     #[ORM\Column(length: 16, enumType: TourStatusEnum::class)]
     private TourStatusEnum $status = TourStatusEnum::Draft;
 
@@ -222,6 +230,30 @@ class Tour
     {
         $this->priceCurrency = $currency;
         $this->brackets = $brackets;
+
+        return $this;
+    }
+
+    public function getMargin(): string
+    {
+        return $this->margin;
+    }
+
+    /**
+     * @return list<array{name: string, per: string, amount: int}>
+     */
+    public function getCosts(): array
+    {
+        return $this->costs;
+    }
+
+    /**
+     * @param list<array{name: string, per: string, amount: int}> $costs
+     */
+    public function setCosting(string $margin, array $costs): static
+    {
+        $this->margin = $margin;
+        $this->costs = $costs;
 
         return $this;
     }

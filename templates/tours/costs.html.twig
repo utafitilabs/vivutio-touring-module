@@ -1,0 +1,102 @@
+{# A tour's costs, as drawn (vivutio-designs tours/cost-sheet, A): the margin
+   wanted; each tier's prices beside their cost a person, margin and the price
+   the margin calls for, a tier's prices taken over when asked; the chosen
+   cell broken down; and the tour's own costs. #}
+{% extends '@Shell/page.html.twig' %}
+{% import '@Shell/_icons.html.twig' as icons %}
+{% import '@VivutioTouring/tours/_macros.html.twig' as tours_ %}
+
+{% macro money(cents) %}{{ (cents / 100)|number_format(2) }}{% endmacro %}
+{% macro margin_chip(margin, wanted) -%}
+    <span class="chip{{ margin >= wanted ? ' ok' : (margin >= 0 ? ' warn' : ' danger') }}" data-margin>{{ margin|number_format(1) }}%</span>
+{%- endmacro %}
+
+{% block title %}Costs of {{ tour.name }}{% endblock %}
+{% block here %}tours{% endblock %}
+
+{% block page %}
+{%- import _self as costs_ -%}
+<header class="page-head">
+    <div><nav class="trail" aria-label="Where you are"><a href="{{ path('touring_tours') }}">Tours</a> / <a href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ tour.name }}</a> / Configure</nav><div class="title"><h1>{{ tour.name }}</h1>{{ tours_.status_chip(tour.status) }}</div></div>
+    <div class="actions"><a class="button outline" href="{{ path('touring_tour', {uuid: tour.uuid}) }}">{{ icons.icon('record', 15) }} View tour</a></div>
+</header>
+{{ tours_.tabs(tour, 'costs') }}
+{% if expired %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>The form had expired, so nothing was saved. Save again.</span></div>{% endif %}
+{% if wrong.tier is defined %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ wrong.tier }}</span></div>{% endif %}
+{%- set cost_wrong = wrong|filter((v, k) => k starts with 'costs[') -%}
+{% if cost_wrong is not empty %}<div class="notice danger" role="alert">{{ icons.icon('alert') }}<span>{{ cost_wrong|first }}</span></div>{% endif %}
+
+<div class="stack">
+    <section class="panel">
+        <header class="panel-head"><h2>Margin wanted</h2><p>Below it, a price is flagged; saved with the costs below</p></header>
+        <div class="grid-3"><div class="field{{ wrong.margin is defined ? ' wrong' }}"><label for="costs-margin">Margin, %</label><input class="input" id="costs-margin" name="margin" value="{{ margin }}" inputmode="decimal" form="costs-form">{{ tours_.hint('margin', wrong, 'A share of the price: 20') }}</div></div>
+    </section>
+    {% if tour.priceCurrency is empty %}
+        <section class="panel"><div class="empty"><b>Nothing to cost yet</b><span>Set the tour’s currency and group sizes on the Prices tab first.</span></div></section>
+    {% endif %}
+    {% for tier in sheet %}
+        <section class="panel list" data-tier="{{ tier.name }}">
+            <header class="panel-head"><h2>{{ tier.name }}</h2><p>Price, cost a person, margin, and the price at {{ wanted_says }}%; choose a cell to see its costs</p></header>
+            <table class="table">
+                <thead><tr><th>Season</th>{% for bracket in tour.brackets %}<th>{{ bracket[0] == bracket[1] ? bracket[0] ~ ' people' : bracket[0] ~ ' – ' ~ bracket[1] }}</th>{% endfor %}</tr></thead>
+                <tbody>
+                {% for row in tier.rows %}
+                    <tr>
+                        <td><div class="legend"><span><i data-tone="{{ row.season.tone.value }}"></i><b>{{ row.season.name }}</b></span></div></td>
+                        {% for cell in row.cells %}
+                            <td data-cell="{{ cell.label }}"><a href="{{ path('touring_tour_costs', {uuid: tour.uuid, cell: cell.key}) }}"{{ picked and picked.key == cell.key ? ' aria-current="true"' }}>
+                                <div><b data-price>{{ cell.price is null ? 'Not sold' : tour.priceCurrency ~ ' ' ~ costs_.money(cell.price) }}</b>
+                                <small data-cost>{% if cell.cost is null %}{{ cell.missing }}{% else %}cost {{ costs_.money(cell.cost) }} &middot; at {{ wanted_says }}%: {{ costs_.money(cell.suggested) }}{% endif %}</small></div>
+                                {% if cell.margin is not null %}{{ costs_.margin_chip(cell.margin, wanted) }}{% endif %}
+                            </a></td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <form class="panel-foot" method="post" action="{{ path('touring_tour_costs_take', {uuid: tour.uuid}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('touring_costs_take') }}"><input type="hidden" name="tier" value="{{ tier.tier }}">
+                <span class="state">Today’s prices change only when taken over; a cell with no cost keeps its price</span>
+                <button type="submit" class="button outline">Use the prices at {{ wanted_says }}% for {{ tier.name }}</button>
+            </form>
+        </section>
+    {% endfor %}
+
+    {% if picked %}
+        <section class="panel" data-breakdown>
+            <header class="panel-head"><h2>{{ picked.title }}</h2><p>{% if picked.start %}For {{ picked.people }}, starting {{ picked.start|date('j M Y') }}{% else %}{{ picked.missing }}{% endif %}</p></header>
+            {% for line in picked.lines %}<div class="fact"><span>{{ line.label }}</span><b>{{ costs_.money(line.amount) }}</b></div>{% endfor %}
+            {% if picked.cost is not null %}
+                <div class="fact"><span>Cost a person</span><b>{{ tour.priceCurrency }} {{ costs_.money(picked.cost) }}</b></div>
+                {% if picked.price is not null %}
+                    <div class="fact"><span>Sold at</span><b>{{ tour.priceCurrency }} {{ costs_.money(picked.price) }}</b></div>
+                    <div class="fact"><span>Margin</span><b>{{ costs_.margin_chip(picked.margin, wanted) }}</b></div>
+                {% endif %}
+            {% else %}
+                <p class="hint">{{ picked.missing }}.</p>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    <form class="stack" id="costs-form" method="post" action="{{ path('touring_tour_costs', {uuid: tour.uuid}) }}" novalidate>
+        <input type="hidden" name="_token" value="{{ csrf_token('touring_costs') }}">
+        <section class="panel list">
+            <header class="panel-head"><h2>The tour’s own costs</h2><p>What the lodges and the parks do not charge, in {{ tour.priceCurrency ?: 'the tour’s currency' }}</p></header>
+            <table class="table">
+                <thead><tr><th>Cost</th><th style="width:200px">Charged</th><th style="width:160px">Amount</th></tr></thead>
+                <tbody>
+                {% for i, row in rows %}
+                    <tr>
+                        {%- set name = 'costs[' ~ i ~ ']' -%}
+                        <td{% if wrong[name ~ '[name]'] is defined %} class="wrong"{% endif %}><input class="input" name="{{ name }}[name]" value="{{ row.name ?? '' }}" maxlength="80" placeholder="{{ loop.first ? 'Vehicle' : 'Another cost' }}" aria-label="Cost {{ i + 1 }}"></td>
+                        <td{% if wrong[name ~ '[per]'] is defined %} class="wrong"{% endif %}><select class="select" name="{{ name }}[per]" aria-label="Charged, cost {{ i + 1 }}"><option value="group"{{ (row.per ?? 'group') == 'group' ? ' selected' }}>The group</option><option value="person"{{ (row.per ?? '') == 'person' ? ' selected' }}>A person</option></select></td>
+                        <td{% if wrong[name ~ '[amount]'] is defined %} class="wrong"{% endif %}><input class="input" name="{{ name }}[amount]" value="{{ row.amount ?? '' }}" inputmode="decimal" aria-label="Amount, cost {{ i + 1 }}"></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <footer class="panel-foot"><span class="state">Lodging and park fees are read from the lodges’ and the parks’ rates</span><button type="submit" class="button main">Save the costs</button></footer>
+        </section>
+    </form>
+</div>
+{% endblock %}
