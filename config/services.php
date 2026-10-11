@@ -18,6 +18,7 @@ use Vivutio\Bundle\PlaceBundle\Repository\DestinationRepository;
 use Vivutio\Bundle\PlaceBundle\Service\DestinationFeeService;
 use Vivutio\Bundle\PlaceBundle\Service\NightCostService;
 use Vivutio\Contracts\Access\ConcernSourceInterface;
+use Vivutio\Contracts\Partner\ChargeSourceInterface;
 use Vivutio\Contracts\Partner\PartnerDirectoryInterface;
 use Vivutio\Contracts\Partner\RoomNeedSourceInterface;
 use Vivutio\Contracts\Shell\MenuSourceInterface;
@@ -28,6 +29,7 @@ use Vivutio\Touring\Controller\TourCancellationController;
 use Vivutio\Touring\Controller\TourController;
 use Vivutio\Touring\Controller\TourCostController;
 use Vivutio\Touring\Controller\TourDepartureController;
+use Vivutio\Touring\Partner\TourCharges;
 use Vivutio\Touring\Partner\TourRoomNeeds;
 use Vivutio\Touring\Repository\TourBookingRepository;
 use Vivutio\Touring\Repository\TourDayRepository;
@@ -175,4 +177,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set('touring.room_needs', TourRoomNeeds::class)
         ->args([service(TourBookingRepository::class), service('touring.tours'), service('clock')])
         ->tag(RoomNeedSourceInterface::TAG);
+    $services->set('touring.charges', TourCharges::class)
+        ->args([service(TourBookingRepository::class), service('touring.tours')])
+        ->tag(ChargeSourceInterface::TAG);
 };
