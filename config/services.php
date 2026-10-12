@@ -21,6 +21,7 @@ use Vivutio\Contracts\Access\ConcernSourceInterface;
 use Vivutio\Contracts\Partner\ChargeSourceInterface;
 use Vivutio\Contracts\Partner\PartnerDirectoryInterface;
 use Vivutio\Contracts\Partner\RoomNeedSourceInterface;
+use Vivutio\Contracts\Shell\DashboardSourceInterface;
 use Vivutio\Contracts\Shell\MenuSourceInterface;
 use Vivutio\Touring\Access\TouringConcerns;
 use Vivutio\Touring\Controller\SeasonController;
@@ -46,6 +47,7 @@ use Vivutio\Touring\Service\TourDepartureService;
 use Vivutio\Touring\Service\TourPriceService;
 use Vivutio\Touring\Service\TourSeasonService;
 use Vivutio\Touring\Service\TourService;
+use Vivutio\Touring\Shell\TouringDashboard;
 use Vivutio\Touring\Shell\TouringMenu;
 
 /*
@@ -180,4 +182,16 @@ return static function (ContainerConfigurator $container): void {
     $services->set('touring.charges', TourCharges::class)
         ->args([service(TourBookingRepository::class), service('touring.tours')])
         ->tag(ChargeSourceInterface::TAG);
+
+    $services->set('touring.dashboard', TouringDashboard::class)
+        ->args([
+            service(TourBookingRepository::class),
+            service(TourDepartureRepository::class),
+            service(TourRepository::class),
+            service('touring.bookings'),
+            service('touring.departures'),
+            service('touring.tours'),
+            service('clock'),
+        ])
+        ->tag(DashboardSourceInterface::TAG);
 };

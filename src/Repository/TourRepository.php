@@ -26,4 +26,19 @@ class TourRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Tour::class);
     }
+
+    /**
+     * Every tour with its days, read at once.
+     *
+     * @return list<Tour>
+     */
+    public function withDays(): array
+    {
+        /** @var list<Tour> */
+        return $this->createQueryBuilder('t')
+            ->addSelect('d')
+            ->leftJoin('t.days', 'd')
+            ->getQuery()
+            ->getResult();
+    }
 }
